@@ -12,13 +12,11 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Force Nitro to emit Vercel's Build Output API v3 format.
+  // Build for Cloudflare Pages.
   nitro: {
-    preset: "vercel",
+    preset: "cloudflare-pages",
     output: {
-      dir: ".vercel/output",
-      serverDir: ".vercel/output/functions/__server.func",
-      publicDir: ".vercel/output/static",
+      dir: "dist",
     },
   },
 });
