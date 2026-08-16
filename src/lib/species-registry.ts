@@ -1,3 +1,18 @@
+/**
+ * species-registry.ts \u2014 hard-coded registry classifying specific
+ * scientific names as "invasive" or "rare" (everything else defaults to
+ * "other").
+ *
+ * What it does:
+ *   - `SPECIES_REGISTRY` \u2014 lowercase scientific-name -> status map,
+ *     manually curated (not derived from CSV data).
+ *   - `classifySpecies(scientificName)` \u2014 case/whitespace-insensitive
+ *     lookup, defaulting to `"other"`.
+ *
+ * Depends on: nothing (standalone data + lookup).
+ * Called by: `@/lib/taxonomy-engine.ts` (`getTaxonStatus`), and directly
+ *   by `@/components/metrics-table.tsx` for invasive/rare species counts.
+ */
 export type SpeciesStatus = "invasive" | "rare" | "other";
 
 export const SPECIES_REGISTRY: Record<string, "invasive" | "rare"> = {

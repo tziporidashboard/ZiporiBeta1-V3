@@ -1,3 +1,15 @@
+/**
+ * config.server.ts — server-only environment configuration.
+ *
+ * What it does:
+ *   - `getServerConfig()` returns process-env-derived values that must
+ *     never be exposed to the browser bundle (the `.server.ts` filename
+ *     suffix tells Vite/TanStack Start to strip this module from the
+ *     client build).
+ *
+ * Called by: server-only handlers, e.g. `@/lib/api/example.functions.ts`
+ *   (`createServerFn` handlers), `@/server.ts`.
+ */
 import process from "node:process";
 
 // Server-only config. The .server.ts suffix prevents Vite from bundling

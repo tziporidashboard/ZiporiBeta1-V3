@@ -1,3 +1,15 @@
+/**
+ * NavBar — top application header with the app title/logo, primary nav
+ * link(s), and a language toggle (Hebrew/English).
+ *
+ * What it does:
+ *   - Highlights the active route via `useRouterState` (TanStack Router).
+ *   - Flips the active locale by calling `setLang` from `useI18n()`.
+ *
+ * Depends on: `@tanstack/react-router`, `lucide-react`, `@/lib/i18n`.
+ * Called by: `src/routes/__root.tsx` (rendered in the app shell above
+ *   the routed `<Outlet />`).
+ */
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Leaf, LayoutDashboard, Languages } from "lucide-react";
 import { useI18n } from "@/lib/i18n";

@@ -1,3 +1,19 @@
+/**
+ * i18n.tsx — lightweight Hebrew/English translation context (no external
+ * i18n library).
+ *
+ * What it does:
+ *   - `dict` — a flat `key -> { he, en }` translation table for all UI
+ *     copy in the app.
+ *   - `I18nProvider` — provides `{ t, lang, setLang }` via context;
+ *     persists the selected `lang` (see implementation below for storage
+ *     mechanism) and defaults to Hebrew, which also drives `dir="rtl"`.
+ *   - `useI18n()` — hook consumed by nearly every component to read
+ *     `t(key)` translations and the active `lang`.
+ *
+ * Called by: `@/src/routes/__root.tsx` (provider), and essentially every
+ *   component under `@/src/components/` (consumer via `useI18n()`).
+ */
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export type Lang = "he" | "en";

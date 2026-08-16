@@ -1,7 +1,22 @@
 /**
- * Survey polygon definitions derived from surveyPolys.shp (Israel TM Grid → WGS84).
- * Each polygon is represented as an array of [longitude, latitude] rings (GeoJSON order).
- * Used for spatial point-in-polygon filtering of observations.
+ * survey-polygons.ts — hard-coded, static survey-area polygon definitions
+ * derived from surveyPolys.shp (Israel TM Grid → WGS84).
+ *
+ * What it does:
+ *   - Defines the 4 fixed survey areas ("תעלה"/Canal, "פשט קטן"/Small
+ *     Floodplain, "נחל"/Stream, "פשט גדול"/Large Floodplain) plus a
+ *     synthetic `"other_areas"` bucket for points outside all of them.
+ *   - `SURVEY_POLYGONS` — each polygon as an array of [longitude,
+ *     latitude] rings (GeoJSON coordinate order).
+ *   - `pointInRing`/`getObservationArea` — ray-casting point-in-polygon
+ *     test used to classify a lat/lon into one of the `SurveyAreaKey`s.
+ *   - `translateArea` — Hebrew/English label lookup for UI display.
+ *
+ * Contrast with `@/lib/monitoring-areas.ts`, which handles
+ * dynamically-loaded (GeoJSON file) monitoring-area polygons.
+ *
+ * Called by: `@/lib/monitoring-areas.ts` (`observationMatchesSelectedAreas`),
+ *   `@/components/observation-map.tsx`, `@/components/filter-sidebar.tsx`.
  */
 
 export type SurveyAreaKey = "תעלה" | "פשט קטן" | "נחל" | "פשט גדול" | "other_areas";

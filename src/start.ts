@@ -1,3 +1,16 @@
+/**
+ * start.ts — TanStack Start app configuration (`createStart`).
+ *
+ * What it does:
+ *   - Registers `errorMiddleware`, a server request middleware that
+ *     catches unhandled errors in request handlers, re-throws framework
+ *     HTTP errors (objects with `statusCode`) untouched, and otherwise
+ *     logs + returns the static fallback error page
+ *     (`@/lib/error-page`).
+ *
+ * Called by: TanStack Start's server bootstrap (referenced from the
+ *   generated server entry / `@/server.ts` chain).
+ */
 import { createStart, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";

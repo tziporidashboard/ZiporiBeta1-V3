@@ -1,3 +1,25 @@
+/**
+ * SpeciesInsightsTable — top-5 species insight table (used in the Species
+ * Deep Dive view) ranking species by observation count, with an annual
+ * trend arrow, research-grade %, and dominant season.
+ *
+ * What it does:
+ *   - `getTopSpecies` (exported, also used directly by
+ *     `@/components/species-deep-dive.tsx` for the chart's default
+ *     highlighted-species set) groups observations by scientific name
+ *     (restricted to named entries in `@/lib/species-map`), computes
+ *     per-species stats, then orders results as: selected
+ *     `prioritySpecies` first, then the rest of `priorityCategory`, then
+ *     everything else — capped to the top 5.
+ *   - `getSeasonalStatus` — buckets a species' observations by month and
+ *     labels the dominant season (or "יציב שנתית" if no season dominates).
+ *   - `TrendIcon` — renders an up/down/stable arrow (RTL-aware) comparing
+ *     a species' first vs. last year of observations.
+ *
+ * Depends on: `@/lib/observations-store`, `@/lib/species-dictionary`
+ *   (`SPECIES_MAP`), `@/lib/species-map`, `@/lib/i18n`, `lucide-react`.
+ * Called by: `@/components/species-deep-dive.tsx`.
+ */
 import { useMemo } from "react";
 import { getTaxaGroup, type Observation, type TaxaGroupKey } from "@/lib/observations-store";
 import { SPECIES_MAP } from "@/lib/species-dictionary";

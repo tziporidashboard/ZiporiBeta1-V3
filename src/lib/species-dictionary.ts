@@ -1,3 +1,21 @@
+/**
+ * species-dictionary.ts \u2014 thin O(1)-lookup wrapper over the raw
+ * `speciesMap` array from `@/lib/species-map`.
+ *
+ * What it does:
+ *   - Pre-builds `Map<scientific_name, SpeciesInfo>` lookups
+ *     (`SPECIES_MAP`, `speciesDictionaryByScientificName`,
+ *     `speciesInfoByScientificName` \u2014 all equivalent) so components
+ *     don't re-scan the ~2,000-entry species array on every render.
+ *   - Exposes convenience getters: `lookupSpecies`,
+ *     `getSpeciesHebrewName`, `getSpeciesEnglishName`,
+ *     `getSpeciesCategory`.
+ *
+ * Depends on: `@/lib/species-map`.
+ * Called by: `@/components/deep-dive-time-series-chart.tsx`,
+ *   `@/components/species-insights-table.tsx`, and other components
+ *   needing a fast scientific-name -> display-name lookup.
+ */
 import { speciesMap, type SpeciesInfo } from "./species-map";
 
 export type SpeciesDictionaryEntry = SpeciesInfo;

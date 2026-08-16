@@ -1,3 +1,29 @@
+/**
+ * monitoring-areas.ts \u2014 dynamic (admin-drawn) monitoring-area polygons,
+ * loaded from GeoJSON at runtime, as opposed to the hard-coded
+ * `@/lib/survey-polygons.ts` shapes.
+ *
+ * What it does:
+ *   - `loadMonitoringAreas()` fetches and validates
+ *     `/monitoring-areas.geojson` (a `FeatureCollection` of
+ *     Polygon/MultiPolygon features, each with `id`/`name`/`color`
+ *     properties).
+ *   - `buildObservationMonitoringAreaIndex()` precomputes, for every
+ *     observation, the set of monitoring-area IDs whose polygon contains
+ *     it (bounding-box pre-filter + `@turf/boolean-point-in-polygon` for
+ *     the precise test), stored in a `WeakMap<Observation, Set<string>>`
+ *     for O(1) lookups during filtering.
+ *   - `observationMatchesSelectedAreas()` \u2014 combines the static
+ *     survey-area check (`getObservationArea`) with the dynamic
+ *     monitoring-area index to decide if an observation passes the
+ *     active area filters.
+ *
+ * Depends on: `@turf/boolean-point-in-polygon`, `geojson` types,
+ *   `@/lib/survey-polygons`, `@/lib/observations-store` (`Observation`).
+ * Called by: `@/lib/observations-store.tsx` (builds the index once per
+ *   dataset load) and every top-level view/`ObservationMap` that filters
+ *   by area.
+ */
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { Observation } from "./observations-store";

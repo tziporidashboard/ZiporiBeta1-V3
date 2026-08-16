@@ -1,3 +1,46 @@
+/**
+ * observations-store.tsx — global React context holding the entire
+ * observation dataset, all dashboard filter state, and the "Species Deep
+ * Dive" sub-state. This is the single source of truth consumed by every
+ * view/component in `@/components/`.
+ *
+ * Data loading (client-only, runs once on mount inside `useEffect`,
+ * skipped during SSR):
+ *   1. Fetches `/user_groups.csv` — maps `user_login` -> raw group name.
+ *   2. Fetches `/Until_June26.csv` — the main iNaturalist export; each
+ *      row is parsed and joined with the user-group map to produce an
+ *      `Observation` (see the `Observation` type below for the required
+ *      columns: `observed_on`, `latitude`, `longitude`, `user_login`,
+ *      `quality_grade`, `iconic_taxon_name`, `scientific_name`,
+ *      `taxon_order_name`, `id`, `establishment_means`, `url`, etc.).
+ *      Rows with unparseable dates or coordinates are dropped.
+ *   3. Fetches `/MERLIN all observations for Zohar.csv` — expert-recorded
+ *      observations (parsed via `parseMerlinRow`), merged with the
+ *      iNaturalist rows into one combined `observations` array.
+ *   4. Fetches `/monitoring-areas.geojson` (via
+ *      `@/lib/monitoring-areas.ts`) and builds a per-observation
+ *      monitoring-area membership index.
+ *   5. Computes dataset-wide date bounds and initializes default filters
+ *      (all years selected, all detected user groups selected, plus
+ *      "expert" always included).
+ *
+ * Filter state (`Filters` type) covers: `dateRange`, `time`
+ *   (year -> selected months), `taxa`, `groups`, `areas`,
+ *   `monitoringAreas`, `speciesTypes`, `researchOnly`.
+ *
+ * Exports: `ObservationsProvider`, `useObservations()`, the `Observation`
+ *   type, and taxa/species/group classification + translation helpers
+ *   (`getTaxaGroup`, `getSpeciesClassification`, `translateGroupName`,
+ *   `translateMonth`, `translateSpeciesName`, `translateTaxa`,
+ *   `TAXA_GROUP_KEYS`, `TaxaGroupKey`, `REA_SHAISH_NAME`).
+ *
+ * Depends on: `papaparse`, `@/lib/survey-polygons`,
+ *   `@/lib/species-dictionary`, `@/lib/taxonomy-engine`,
+ *   `@/lib/monitoring-areas`.
+ * Called by: `@/src/routes/__root.tsx` (wraps the app in
+ *   `ObservationsProvider`), and every component that calls
+ *   `useObservations()`.
+ */
 import {
   createContext,
   useContext,

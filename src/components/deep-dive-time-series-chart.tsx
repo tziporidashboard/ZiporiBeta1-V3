@@ -1,3 +1,26 @@
+/**
+ * DeepDiveTimeSeriesChart — Recharts line chart used inside the
+ * "Species Deep Dive" view (`@/components/species-deep-dive.tsx`).
+ *
+ * What it does, in two mutually-exclusive scenarios:
+ *   A) No species selected (`selectedSpecies` empty): plots the selected
+ *      taxa `category` ("focus" line) against all other categories
+ *      combined ("background" line), one point per month/year.
+ *   B) One or more species selected: plots one line per selected
+ *      scientific name (restricted to observations within `category`),
+ *      colored via `SPECIES_PALETTE` and labeled via `getSpeciesLabel`
+ *      (Hebrew/English common name lookup against `SPECIES_MAP`).
+ *
+ * Main pieces:
+ *   - `parseSortKey` (local) — parses `DD/MM/YYYY` into a sortable
+ *     `YYYYMM` integer plus a display label like "Jan-24".
+ *   - `getSpeciesLabel` — resolves scientific name -> localized common name.
+ *
+ * Depends on: `recharts`, `@/lib/i18n`, `@/lib/observations-store`
+ *   (`translateMonth`, `getTaxaGroup`, `Observation`, `TaxaGroupKey`),
+ *   `@/lib/species-dictionary` (`SPECIES_MAP`).
+ * Called by: `@/components/species-deep-dive.tsx`.
+ */
 import { useMemo } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,

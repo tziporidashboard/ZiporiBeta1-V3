@@ -1,3 +1,31 @@
+/**
+ * ObservationMap — Leaflet-based map that plots aggregated observation
+ * "bubbles" (CircleMarkers) over OpenStreetMap tiles, with survey-area /
+ * monitoring-area polygon overlays and a detail sidebar for a clicked
+ * bubble.
+ *
+ * What it does:
+ *   - Aggregates raw `data` (already filtered by the caller) into
+ *     `bubbles`: one entry per unique
+ *     `scientific_name|observed_on|rounded-lat|rounded-lng` combination,
+ *     merging duplicate points and tracking their `composite_id`s.
+ *   - Uses a single shared Leaflet canvas `renderer` for all vector
+ *     layers so overlapping polygons/circles/geojson hit-test correctly
+ *     (Leaflet gives each canvas pane its own hit-testing otherwise).
+ *   - Implements manual click resolution (`MapClickHandler`) instead of
+ *     per-marker interactivity, for performance with many bubbles:
+ *     listens to the map's own click event, only active at zoom >= 12,
+ *     and resolves the nearest bubble within `CLICK_PIXEL_THRESHOLD` px.
+ *   - Renders `FitBounds` (auto-fits viewport to `data`) and
+ *     `ZoomTracker` (tracks current zoom level for the click threshold).
+ *   - Shows a slide-in detail sidebar listing every observation merged
+ *     into the selected bubble (species, observer, date, source link).
+ *
+ * Depends on: `react-leaflet`, `leaflet`, `@/lib/observations-store`,
+ *   `@/lib/i18n`, `@/lib/survey-polygons`.
+ * Called by: `@/components/dashboard.tsx`, `@/components/people-dashboard.tsx`,
+ *   `@/components/species-deep-dive.tsx`.
+ */
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,

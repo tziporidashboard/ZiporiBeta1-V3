@@ -1,3 +1,18 @@
+/**
+ * lovable-error-reporting.ts \u2014 client-side bridge to the Lovable.dev
+ * error-reporting/monitoring integration (injected globally as
+ * `window.__lovableEvents`).
+ *
+ * What it does:
+ *   - `reportLovableError(error, context)` forwards a caught error (with
+ *     the current pathname and any extra context) to
+ *     `window.__lovableEvents.captureException`, tagged as coming from a
+ *     React error boundary. No-ops on the server (`typeof window ===
+ *     "undefined"`) or if the Lovable script hasn't loaded.
+ *
+ * Called by: the app's top-level React error boundary (see
+ *   `@/src/routes/__root.tsx`).
+ */
 type LovableErrorOptions = {
   mechanism?: "manual" | "onerror" | "unhandledrejection" | "react_error_boundary";
   handled?: boolean;

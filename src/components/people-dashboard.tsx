@@ -1,3 +1,33 @@
+/**
+ * PeopleDashboard — "People" analytics view, grouping observations by
+ * contributor group/subgroup (expert, zevulun/yizrael/mechnistim
+ * monitoring subgroups, students, and online-community "public" users)
+ * with a per-user drill-down.
+ *
+ * What it does:
+ *   - Applies the shared dashboard `filters` (date/quality/time/taxa/
+ *     area/species-type) but deliberately IGNORES the global user-group
+ *     filter, since this page has its own `GROUPS` chip selector
+ *     (`selectedGroup`) plus a searchable per-user dropdown
+ *     (`selectedUser`).
+ *   - Computes `groupCounts` (observations per group, for chip badges)
+ *     and `userChipList`/`userDropdownList` (per-user counts within the
+ *     active group, searchable via `userSearch`).
+ *   - Resets `selectedGroup`/`selectedUser` whenever `resetVersion`
+ *     changes (global filter reset from `useObservations()`).
+ *   - Renders the KPI strip, group chips, user search dropdown, the
+ *     `ObservationMap`, `UserAnalyticsTable`, and `UserActivityChart`.
+ *
+ * Key helpers:
+ *   - `parseObsTimestamp` — parses `DD/MM/YYYY` to epoch ms (duplicated
+ *     from `@/components/dashboard.tsx`).
+ *   - `GROUPS` — static list of contributor group/subgroup definitions.
+ *
+ * Depends on: `@/lib/observations-store`, `@/lib/survey-polygons`,
+ *   `@/lib/monitoring-areas`, `@/lib/i18n`, `ObservationMap`,
+ *   `UserAnalyticsTable`, `UserActivityChart`, `@/components/ui/input`.
+ * Called by: the "People" route/tab in the app shell.
+ */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, ListFilter } from "lucide-react";
 import { useI18n } from "@/lib/i18n";

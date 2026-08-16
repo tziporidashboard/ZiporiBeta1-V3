@@ -1,3 +1,26 @@
+/**
+ * TimeSeriesChart — main Dashboard line chart plotting monthly
+ * observation counts per contributor group (expert / local_communities /
+ * student / online_communities), rendered in a fixed grayscale-plus-accent
+ * palette with distinct marker shapes per group (for print/colorblind
+ * friendliness).
+ *
+ * What it does:
+ *   - Groups `data` by `(year*100+month)` sort key and `user_category`
+ *     ("online_communities" fallback when unset), producing raw counts.
+ *   - Zero-fills every group at every timestamp so all lines span the
+ *     full x-axis even where a group had no observations that month.
+ *   - Always includes the "expert" (Professional Monitoring) group/line
+ *     even with zero data, per `GROUP_CONFIG`.
+ *   - Renders custom dot shapes (`CircleDot`, `CrossDot`, `TriangleDot`,
+ *     `DiamondDot`) at a sparse, even interval (`shouldShowDot`) instead
+ *     of one dot per data point, and a matching `CustomLegend`.
+ *
+ * Depends on: `recharts`, `@/lib/i18n`, `@/lib/observations-store`
+ *   (`translateMonth`, `translateGroupName`, `Observation`).
+ * Called by: `@/components/dashboard.tsx` (fed the `chartData` pipeline,
+ *   which ignores the user-group filter).
+ */
 import { useMemo } from "react";
 import {
   LineChart,

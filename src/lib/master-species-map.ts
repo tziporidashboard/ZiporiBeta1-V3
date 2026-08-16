@@ -1,3 +1,8 @@
+// DEPRECATED: Not in use as of August 2026. Kept for reference.
+// Confirmed via repo-wide search: no file under `src/` imports from
+// `master-species-map.ts`. `@/lib/taxonomy-engine.ts` (the actual single
+// source of truth for taxonomy) sources its data from
+// `@/lib/species-map.ts` (`speciesMap`) instead.
 /**
  * Master species map generated from public/Tzipori_2325.csv and enriched from species_master_list.csv.
  * Additionally merged with species from MERLIN butterflies and mammals observations for Zohar.csv.

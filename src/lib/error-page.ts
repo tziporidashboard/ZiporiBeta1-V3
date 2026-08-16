@@ -1,3 +1,11 @@
+/**
+ * error-page.ts \u2014 renders a minimal, dependency-free static HTML error
+ * page (inline styles, no external assets) shown when the server fails
+ * to render the real app.
+ *
+ * Called by: `@/server.ts`, as the fallback response body for unhandled
+ * server-side errors.
+ */
 export function renderErrorPage(): string {
   return `<!doctype html>
 <html lang="en">

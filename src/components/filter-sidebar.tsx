@@ -1,3 +1,31 @@
+/**
+ * FilterSidebar — the collapsible right-hand panel exposing all dashboard
+ * filter controls (years/months, quality grade, species type, target
+ * population/user group, and monitoring/survey areas).
+ *
+ * What it does:
+ *   - Reads/writes the shared `filters` state from
+ *     `useObservations()` (see `@/lib/observations-store`), so every
+ *     change here is immediately reflected across `Dashboard`,
+ *     `ObservationMap`, `MetricsTable`, and `TimeSeriesChart`.
+ *   - Derives the list of `uniqueYears` present in the dataset from the
+ *     `DD/MM/YYYY`-formatted `observed_on` field.
+ *   - Keeps the precise `dateRange` (epoch ms) in sync whenever whole
+ *     years are toggled (snaps to Jan 1 – Dec 31 of the selected span).
+ *
+ * Local subcomponents:
+ *   - `Section` — labeled checkbox group wrapper.
+ *   - `Check`   — custom checkbox supporting an `indeterminate` state
+ *     (used when a year is active but only some of its months are).
+ *
+ * Toggle handlers: `toggleYear`, `toggleMonth`, `toggleTaxa`,
+ *   `toggleGroup`, `toggleArea`, `toggleMonitoringArea`.
+ *
+ * Depends on: `@/lib/observations-store`, `@/lib/survey-polygons`,
+ *   `@/lib/i18n`, `lucide-react`.
+ * Called by: `@/components/dashboard.tsx` (or the route that toggles the
+ *   filter panel open/closed via `onClose`).
+ */
 import { useMemo } from "react";
 import { X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";

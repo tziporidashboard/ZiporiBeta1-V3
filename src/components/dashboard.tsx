@@ -1,3 +1,34 @@
+/**
+ * Dashboard — main analytics view for the "Eyes for Nahal Tzippori" app.
+ *
+ * What it does:
+ *   - Reads the global observation dataset + active filter state from
+ *     `useObservations()` (see `@/lib/observations-store`).
+ *   - Runs three separate client-side filter pipelines over the raw
+ *     observations array (memoized with `useMemo`):
+ *       1. `filtered`    — full filter set (date, quality, time, taxa,
+ *                          user group, area, species type) → feeds the map.
+ *       2. `chartData`   — same as `filtered` but ignores the user-group
+ *                          filter, so the time-series chart can compare
+ *                          all contributor groups regardless of sidebar
+ *                          selection.
+ *       3. `metricsData` — same idea, ignores user-group filter so the
+ *                          Metrics table's invasive/rare counts stay
+ *                          consistent with the selected taxa tabs.
+ *   - Renders the KPI strip (rows/observers/species), the taxa tab bar,
+ *     the Leaflet map, the metrics table, and the time-series chart.
+ *
+ * Key helpers:
+ *   - `parseObsTimestamp` — parses `DD/MM/YYYY` observation dates to epoch ms.
+ *   - `areaMatches`       — polygon-area inclusion logic (handles the
+ *                          special "other_areas" bucket for points outside
+ *                          all monitoring polygons).
+ *
+ * Depends on: `@/lib/observations-store`, `@/lib/taxonomy-engine`,
+ *   `@/lib/survey-polygons`, `@/lib/monitoring-areas`, `@/lib/i18n`,
+ *   `TaxaFilterBar`, `ObservationMap`, `MetricsTable`, `TimeSeriesChart`.
+ * Called by: `src/routes/index.tsx` (the `/` route).
+ */
 import { useMemo } from "react";
 import { useObservations, getTaxaGroup, getSpeciesClassification } from "@/lib/observations-store";
 import { getTaxonDetails } from "@/lib/taxonomy-engine";
