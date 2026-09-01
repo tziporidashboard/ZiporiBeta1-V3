@@ -69,7 +69,6 @@ export function MetricsTable({ data }: { data: Observation[] }) {
     const CANONICAL_GROUPS: { raw: string; matchKeys: string[] }[] = [
       { raw: "expert", matchKeys: ["expert"] },
       { raw: "local_communities", matchKeys: ["local_communities"] },
-      { raw: "student", matchKeys: ["student"] },
       { raw: "online_communities", matchKeys: ["online_communities"] },
     ];
 
