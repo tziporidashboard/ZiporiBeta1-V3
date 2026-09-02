@@ -1,3 +1,17 @@
+/**
+ * TaxaFilterBar — horizontal row of pill-style toggle buttons for the
+ * 7 taxa groups (mammals, birds, butterflies, dragonflies, arthropods,
+ * plants, other), used to filter the main Dashboard.
+ *
+ * What it does:
+ *   - Toggles membership of a `TaxaGroupKey` in the shared
+ *     `filters.taxa` set via `useObservations()`'s `setFilters`.
+ *   - Renders each button with a fixed active/inactive color pair and a
+ *     localized label via `translateTaxa`.
+ *
+ * Depends on: `@/lib/observations-store`, `@/lib/i18n`.
+ * Called by: `@/components/dashboard.tsx`.
+ */
 import { useObservations, type TaxaGroupKey, translateTaxa } from "@/lib/observations-store";
 import { useI18n } from "@/lib/i18n";
 

@@ -1,3 +1,16 @@
+/**
+ * error-capture.ts — out-of-band capture of the last unhandled
+ * error/rejection on the current global scope.
+ *
+ * What it does:
+ *   - Registers `error`/`unhandledrejection` listeners (if available)
+ *     that stash the most recent error with a timestamp.
+ *   - `consumeLastCapturedError()` returns and clears that error, but
+ *     only within a `TTL_MS` (5s) window — stale errors are discarded.
+ *
+ * Called by: `@/server.ts`, to recover the original Error/stack when h3
+ * has already swallowed a throw into a generic 500 Response.
+ */
 // Captures the original Error out-of-band so server.ts can recover the stack
 // when h3 has already swallowed the throw into a generic 500 Response.
 

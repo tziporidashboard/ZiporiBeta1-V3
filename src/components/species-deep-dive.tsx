@@ -1,3 +1,41 @@
+/**
+ * SpeciesDeepDive — "Species Deep Dive" analytics view, allowing users
+ * to drill into a single taxa category and/or one or more specific
+ * species (by scientific name) across the map, insights table, and
+ * time-series chart.
+ *
+ * What it does:
+ *   - Reads/writes deep-dive-specific state (`deepDive`/`deepDiveActions`)
+ *     from `useObservations()`, separate from the main dashboard filters:
+ *     `category` (active taxa tab), `species` (selected scientific
+ *     names), `search` (species search box text).
+ *   - Builds `groupedSpecies`: every distinct, non-generic species from
+ *     `@/lib/species-map` bucketed into dashboard `TaxaGroupKey`
+ *     categories via a Hebrew category-name mapping.
+ *   - Applies the shared dashboard filters (`globallyFilteredObservations`)
+ *     then narrows further by the active deep-dive `category`/`species`
+ *     selection (`deepDiveFiltered`) for the KPI summary.
+ *   - Computes per-category and per-species observation counts to badge
+ *     the category tabs and the species dropdown checkboxes.
+ *   - Renders KPI strip, category tabs, species search dropdown, the
+ *     `ObservationMap` (highlighting selected species),
+ *     `SpeciesInsightsTable`, and `DeepDiveTimeSeriesChart`.
+ *
+ * Key helpers:
+ *   - `parseObsTimestamp` / `areaMatches` — same filter-pipeline helpers
+ *     as `@/components/dashboard.tsx`.
+ *   - `getSpeciesGroup` — maps a scientific name + iconic taxon to a
+ *     `TaxaGroupKey` via the shared `getTaxaGroup` classifier.
+ *   - `getSpeciesLabel` — resolves a species map entry to its localized
+ *     display name (Hebrew common name, falling back to scientific name).
+ *
+ * Depends on: `@/lib/observations-store`, `@/lib/species-map`,
+ *   `@/lib/taxonomy-engine`, `@/lib/survey-polygons`,
+ *   `@/lib/monitoring-areas`, `@/lib/i18n`, `ObservationMap`,
+ *   `SpeciesInsightsTable`, `DeepDiveTimeSeriesChart`,
+ *   `@/components/ui/input`.
+ * Called by: the "Species Deep Dive" route/tab in the app shell.
+ */
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useObservations,

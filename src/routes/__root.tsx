@@ -1,3 +1,22 @@
+/**
+ * __root.tsx — TanStack Start root route: the app shell wrapping every
+ * page (see `@/src/routes/README.md` for file-based routing conventions).
+ *
+ * What it does:
+ *   - `RootShell` renders the outer `<html>/<head>/<body>` document
+ *     shell (used for SSR + head-tag injection via `HeadContent`).
+ *   - `RootComponent` wraps the routed `<Outlet />` in `I18nProvider`
+ *     (`@/lib/i18n`) so every page/component can call `useI18n()`.
+ *   - `NotFoundComponent` / `ErrorComponent` — global 404 and
+ *     error-boundary fallbacks; `ErrorComponent` also forwards caught
+ *     errors to `reportLovableError` (`@/lib/lovable-error-reporting`).
+ *
+ * Depends on: `@tanstack/react-router`, `@/lib/i18n`,
+ *   `@/lib/lovable-error-reporting`, `@/components/nav-bar`,
+ *   `../styles.css`.
+ * Called by: the router (`@/router.tsx`) via `routeTree.gen.ts` — every
+ *   route (e.g. `@/src/routes/index.tsx`) renders inside this shell.
+ */
 import {
   Outlet,
   Link,

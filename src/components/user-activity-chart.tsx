@@ -1,3 +1,19 @@
+/**
+ * UserActivityChart — People-dashboard line chart plotting monthly
+ * observation counts for a fixed set of `users` (typically the current
+ * top 5 contributors), one colored line per user.
+ *
+ * What it does:
+ *   - Filters `observations` down to the given `users` list, buckets by
+ *     `(year*100+month)` sort key, and zero-fills each user at every
+ *     timestamp.
+ *   - Assigns a stable color per user from `USER_PALETTE` (cycled by
+ *     index) and renders an empty-state message when there is no data.
+ *
+ * Depends on: `recharts`, `@/lib/i18n`, `@/lib/observations-store`
+ *   (`translateMonth`, `Observation`).
+ * Called by: `@/components/people-dashboard.tsx` (fed `topUserLogins`).
+ */
 import { useMemo } from "react";
 import {
   LineChart,

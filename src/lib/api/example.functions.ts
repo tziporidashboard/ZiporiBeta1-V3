@@ -1,3 +1,11 @@
+/**
+ * example.functions.ts \u2014 sample TanStack Start server function,
+ * demonstrating the `createServerFn` pattern used for server-side logic
+ * in this app (in place of Supabase Edge Functions).
+ *
+ * Called from client code as: `await getGreeting({ data: { name: "Ada" } })`.
+ * Depends on: `@tanstack/react-start`, `zod`, `@/lib/config.server`.
+ */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 

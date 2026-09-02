@@ -1,3 +1,23 @@
+/**
+ * MetricsTable — summary statistics table broken down by contributor
+ * group (expert / local_communities / student / online_communities).
+ *
+ * What it does:
+ *   - `computeRow` aggregates a list of observations into: days
+ *     monitoring (unique `observed_on` dates), total observations,
+ *     research-grade quality %, distinct (non-generic) species count,
+ *     invasive species count, rare species count, and monitoring rate
+ *     (observations per monitoring day).
+ *   - Groups the incoming `data` prop by `user_category` into the four
+ *     canonical groups (falling back to `online_communities` when
+ *     unset) and renders one row per group, always in a fixed order.
+ *
+ * Depends on: `@/lib/observations-store` (`Observation`,
+ *   `translateGroupName`), `@/lib/species-registry` (`classifySpecies`),
+ *   `@/lib/taxonomy-engine` (`getTaxonDetails`), `@/lib/i18n`.
+ * Called by: `@/components/dashboard.tsx` (fed with the `metricsData`
+ *   pipeline, which ignores the user-group filter).
+ */
 import { useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { Observation } from "@/lib/observations-store";

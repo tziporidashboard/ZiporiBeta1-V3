@@ -1,3 +1,10 @@
+/**
+ * use-mobile.tsx — `useIsMobile()` hook, tracking whether the viewport is
+ * narrower than `MOBILE_BREAKPOINT` (768px) via a `matchMedia` listener.
+ *
+ * Called by: `@/components/ui/sidebar.tsx` (and any other component
+ *   needing responsive mobile/desktop branching).
+ */
 import * as React from "react";
 
 const MOBILE_BREAKPOINT = 768;

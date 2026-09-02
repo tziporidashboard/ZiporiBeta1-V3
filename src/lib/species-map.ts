@@ -1,3 +1,18 @@
+/**
+ * species-map.ts — the ACTIVE single source of truth for species taxonomy
+ * data (curated ~2,000-entry dictionary), consumed by
+ * `@/lib/taxonomy-engine.ts`.
+ *
+ * What it does:
+ *   - Defines `SpeciesInfo` (`Scientific_Name`, `Category` [canonical
+ *     Hebrew group], `Hebrew_Name`, `English_Name`, `isGeneric`).
+ *   - Exports `speciesMap: SpeciesInfo[]`, built from a raw generated
+ *     array (see `RawSpeciesInfo`) below in this file.
+ *
+ * Depends on: nothing (standalone generated data).
+ * Called by: `@/lib/taxonomy-engine.ts`, `@/lib/species-dictionary.ts`,
+ *   `@/components/species-deep-dive.tsx`, `@/components/species-insights-table.tsx`.
+ */
 export type SpeciesInfo = {
   Scientific_Name: string;
   Category: string;

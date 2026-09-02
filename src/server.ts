@@ -1,3 +1,20 @@
+/**
+ * server.ts — Cloudflare Workers / TanStack Start server entry point.
+ *
+ * What it does:
+ *   - Lazily imports and delegates to the real
+ *     `@tanstack/react-start/server-entry` handler.
+ *   - `normalizeCatastrophicSsrResponse` — detects the specific case
+ *     where h3 has swallowed an in-handler throw into a generic 500 JSON
+ *     `{"unhandled":true,"message":"HTTPError"}` response, logs the real
+ *     captured error (via `@/lib/error-capture`), and replaces it with a
+ *     friendlier static HTML error page (`@/lib/error-page`).
+ *   - Top-level `fetch` handler also catches any error thrown before a
+ *     response is produced at all, returning the same fallback page.
+ *
+ * Depends on: `@tanstack/react-start/server-entry`,
+ *   `@/lib/error-capture`, `@/lib/error-page`.
+ */
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";

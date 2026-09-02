@@ -6,19 +6,29 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// Vercel sets the `VERCEL` env var during every build it runs. We use this
+// to pick the correct Nitro preset automatically instead of hard-pinning
+// "cloudflare-pages" (which previously caused 404s on Vercel: that preset
+// emits a Cloudflare Worker bundle — `_worker.js`, `_routes.json`,
+// `nitro.json` — with NO index.html anywhere, which Vercel cannot execute
+// or serve as static files).
+const isVercel = !!process.env.VERCEL;
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Force Nitro to emit Vercel's Build Output API v3 format.
-  nitro: {
-    preset: "vercel",
-    output: {
-      dir: ".vercel/output",
-      serverDir: ".vercel/output/functions/__server.func",
-      publicDir: ".vercel/output/static",
-    },
-  },
+  // Build for Cloudflare Pages by default; auto-switch to the Vercel
+  // preset when building on Vercel (produces .vercel/output, Vercel's
+  // native Build Output API format, instead of a Cloudflare Worker).
+  nitro: isVercel
+    ? { preset: "vercel" }
+    : {
+        preset: "cloudflare-pages",
+        output: {
+          dir: "dist",
+        },
+      },
 });

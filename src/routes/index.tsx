@@ -1,3 +1,30 @@
+/**
+ * index.tsx — the `/` route: top-level app shell for the dashboard,
+ * hosting the 3 main tabs (Overview / Deep Dive / People) plus the
+ * persistent filter sidebar and global date-range bar.
+ *
+ * What it does:
+ *   - Wraps everything in `ObservationsProvider` (`@/lib/observations-store`)
+ *     so all descendant tabs share one dataset + filter state.
+ *   - Renders `FilterSidebar` as a slide-in drawer (`sidebarOpen` state),
+ *     a `Tabs` bar (overview/deep-dive/people, each lazy-loaded via
+ *     `React.lazy` + `Suspense`), a language toggle, and
+ *     `GlobalDateRangeBar` (the persistent `DateRangeSlider`, synced to
+ *     `filters.dateRange`/`filters.time`).
+ *   - `ResetFiltersButton` — restores all filters to their
+ *     dataset-derived defaults (all years/taxa/areas/species-types
+ *     selected, all detected groups + "expert") and bumps
+ *     `resetVersion` so per-tab local selection state (e.g. People's
+ *     selected user) also resets.
+ *   - `ssr: false` on this route — the dashboard is client-rendered only
+ *     (data loading depends on `window`/`fetch` of local CSV files).
+ *
+ * Depends on: `@/lib/observations-store`, `@/lib/survey-polygons`,
+ *   `@/lib/i18n`, `@/components/ui/tabs`, `@/components/filter-sidebar`,
+ *   `@/components/date-range-slider`, and the lazy-loaded `Dashboard`,
+ *   `SpeciesDeepDive`, `PeopleDashboard` components.
+ * Called by: the router, as the component for path `/`.
+ */
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { ObservationsProvider, useObservations } from "@/lib/observations-store";

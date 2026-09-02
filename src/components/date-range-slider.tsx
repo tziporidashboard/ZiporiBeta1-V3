@@ -1,3 +1,23 @@
+/**
+ * DateRangeSlider — dual-thumb date range slider built on Radix's Slider
+ * primitive.
+ *
+ * What it does:
+ *   - Renders a draggable min/max range (in epoch-ms) with monthly tick
+ *     labels formatted via `Intl.DateTimeFormat` (locale-aware, he/en).
+ *   - Optionally paints grey "gap masks" over the yellow selected-range
+ *     track for any year that exists within the thumb range but is NOT
+ *     present in `selectedYears` (used to visually reflect sparse year
+ *     selections from the filter sidebar).
+ *
+ * Main pieces:
+ *   - `gapMasks` (useMemo) — computes left%/width% overlays per excluded year.
+ *   - `ticks` (useMemo)    — computes Jan/Jul tick positions per year in range.
+ *
+ * Depends on: `@radix-ui/react-slider`, `@/lib/i18n`.
+ * Called by: `src/components/filter-sidebar.tsx` (or wherever a precise
+ *   date-range control is needed alongside the year/month checkboxes).
+ */
 import { useCallback, useMemo } from "react";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import { useI18n } from "@/lib/i18n";

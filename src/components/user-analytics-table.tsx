@@ -1,3 +1,21 @@
+/**
+ * UserAnalyticsTable — People-dashboard table ranking the top `topN`
+ * contributors (by observation count) with year-over-year trend,
+ * research-grade %, and preferred season.
+ *
+ * What it does:
+ *   - Groups `observations` by `user_login`, computing per-user total
+ *     count, research-grade %, latest vs. previous year counts (for the
+ *     trend arrow), and `isExpert` flag (from `user_subcategory`).
+ *   - `getPreferredSeason` — same seasonal-bucketing logic pattern as
+ *     `@/components/species-insights-table.tsx`, applied per user.
+ *   - Sorts by total observations descending and slices to `topN`
+ *     (default 5).
+ *
+ * Depends on: `@/lib/observations-store` (`Observation`), `@/lib/i18n`,
+ *   `lucide-react`.
+ * Called by: `@/components/people-dashboard.tsx`.
+ */
 import { useMemo } from "react";
 import type { Observation } from "@/lib/observations-store";
 import { useI18n } from "@/lib/i18n";
