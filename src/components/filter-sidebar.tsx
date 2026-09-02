@@ -15,8 +15,7 @@
  *
  * Local subcomponents:
  *   - `Section` — labeled checkbox group wrapper.
- *   - `Check`   — custom checkbox supporting an `indeterminate` state
- *     (used when a year is active but only some of its months are).
+ *   - `Check`   — custom checkbox supporting an `indeterminate` state.
  *
  * Toggle handlers: `toggleYear`, `toggleMonth`, `toggleTaxa`,
  *   `toggleGroup`, `toggleArea`, `toggleMonitoringArea`.
@@ -26,8 +25,8 @@
  * Called by: `@/components/dashboard.tsx` (or the route that toggles the
  *   filter panel open/closed via `onClose`).
  */
-import { useMemo } from "react";
-import { X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronDown, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import {
   useObservations,
@@ -86,22 +85,27 @@ function Check({
 
 export function FilterSidebar({ onClose }: { onClose: () => void }) {
   const { t, lang } = useI18n();
-  const {
-    observations,
-    filters,
-    setFilters,
-    toggleSpeciesType,
-    datasetBounds,
-    monitoringAreas,
-  } = useObservations();
+  const [localCommunitiesOpen, setLocalCommunitiesOpen] = useState(false);
+  const { observations, filters, setFilters, toggleSpeciesType, datasetBounds, monitoringAreas } =
+    useObservations();
 
   // Fixed Target Population options, mapped to their user_category keys
   const targetPopulationOptions = useMemo(
     () => [
       { key: "expert", label: translateGroupName("expert", lang) },
       { key: "local_communities", label: translateGroupName("local_communities", lang) },
-      { key: "student", label: translateGroupName("student", lang) },
       { key: "online_communities", label: translateGroupName("online_communities", lang) },
+    ],
+    [lang],
+  );
+
+  // Fixed Local Community subgroup options used by the nested filter
+  const localCommunityOptions = useMemo(
+    () => [
+      { key: "yizrael", label: translateGroupName("yizrael", lang) },
+      { key: "zevulun", label: translateGroupName("zevulun", lang) },
+      { key: "student", label: translateGroupName("student", lang) },
+      { key: "mechnistim", label: translateGroupName("mechnistim", lang) },
     ],
     [lang],
   );
@@ -205,11 +209,66 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
     });
   };
 
+  const toggleLocalCommunitySubgroup = (subgroup: string) => {
+    setFilters((prev) => {
+      const next = new Set(prev.localCommunitySubgroups);
+      const groups = new Set(prev.groups);
+
+      if (next.has(subgroup)) {
+        next.delete(subgroup);
+      } else {
+        next.add(subgroup);
+      }
+
+      if (next.size > 0) {
+        groups.add("local_communities");
+      } else {
+        groups.delete("local_communities");
+      }
+
+      return {
+        ...prev,
+        groups,
+        localCommunitySubgroups: next,
+      };
+    });
+  };
+
+  const toggleAllLocalCommunitySubgroups = (checked: boolean) => {
+    setFilters((prev) => {
+      const groups = new Set(prev.groups);
+
+      if (checked) {
+        groups.add("local_communities");
+      } else {
+        groups.delete("local_communities");
+      }
+
+      return {
+        ...prev,
+        groups,
+        localCommunitySubgroups: checked
+          ? new Set(localCommunityOptions.map((subgroup) => subgroup.key))
+          : new Set(),
+      };
+    });
+  };
+
+  const allLocalCommunitySubgroupsSelected = localCommunityOptions.every((subgroup) =>
+    filters.localCommunitySubgroups.has(subgroup.key),
+  );
+
+  const someLocalCommunitySubgroupsSelected = localCommunityOptions.some((subgroup) =>
+    filters.localCommunitySubgroups.has(subgroup.key),
+  );
+
   const toggleArea = (key: SurveyAreaKey) => {
     setFilters((prev) => {
       const next = new Set(prev.areas);
+
       if (next.has(key)) next.delete(key);
       else next.add(key);
+
       return { ...prev, areas: next };
     });
   };
@@ -217,15 +276,21 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
   const toggleMonitoringArea = (id: string) => {
     setFilters((prev) => {
       const next = new Set(prev.monitoringAreas);
+
       if (next.has(id)) next.delete(id);
       else next.add(id);
+
       return { ...prev, monitoringAreas: next };
     });
   };
 
   const monthName = (m: string) => {
     const monthNum = parseInt(m, 10);
-    if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) return m;
+
+    if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+      return m;
+    }
+
     return translateMonth(monthNum, lang);
   };
 
@@ -233,6 +298,7 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
     <aside className="flex h-full w-96 max-w-[calc(100vw-1.25rem)] shrink-0 flex-col gap-3 overflow-y-auto bg-card px-4 py-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-xs font-bold">{t("filters")}</h2>
+
         <button
           type="button"
           onClick={onClose}
@@ -293,14 +359,60 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
       </Section>
 
       <Section title={t("targetPop")}>
-        {targetPopulationOptions.map((option) => (
-          <Check
-            key={option.key}
-            checked={filters.groups.has(option.key)}
-            onChange={() => toggleGroup(option.key)}
-            label={option.label}
-          />
-        ))}
+        {targetPopulationOptions.map((option) => {
+          if (option.key === "local_communities") {
+            return (
+              <div key={option.key}>
+                <div className="flex items-center gap-1">
+                  <Check
+                    checked={allLocalCommunitySubgroupsSelected}
+                    indeterminate={
+                      someLocalCommunitySubgroupsSelected && !allLocalCommunitySubgroupsSelected
+                    }
+                    onChange={(checked) => toggleAllLocalCommunitySubgroups(checked)}
+                    label={option.label}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setLocalCommunitiesOpen((prev) => !prev)}
+                    aria-label="Toggle local communities"
+                    aria-expanded={localCommunitiesOpen}
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md hover:bg-secondary"
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${
+                        localCommunitiesOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {localCommunitiesOpen && (
+                  <div className="space-y-1 ps-6">
+                    {localCommunityOptions.map((subgroup) => (
+                      <Check
+                        key={subgroup.key}
+                        checked={filters.localCommunitySubgroups.has(subgroup.key)}
+                        onChange={() => toggleLocalCommunitySubgroup(subgroup.key)}
+                        label={subgroup.label}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <Check
+              key={option.key}
+              checked={filters.groups.has(option.key)}
+              onChange={() => toggleGroup(option.key)}
+              label={option.label}
+            />
+          );
+        })}
       </Section>
 
       <Section title={t("monitoringAreas")}>

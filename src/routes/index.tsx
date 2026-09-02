@@ -72,9 +72,7 @@ function Index() {
       >
         {/* Backdrop */}
         {sidebarOpen && (
-          <div
-            className="pointer-events-none fixed inset-0 z-[9998] bg-black/20 transition-opacity"
-          />
+          <div className="pointer-events-none fixed inset-0 z-[9998] bg-black/20 transition-opacity" />
         )}
 
         {/* Sliding sidebar drawer */}
@@ -198,6 +196,7 @@ function ResetFiltersButton() {
         "other",
       ] as const),
       groups: groupsInData,
+      localCommunitySubgroups: new Set(["yizrael", "zevulun", "student", "mechnistim"]),
       researchOnly: false,
       areas: new Set(SURVEY_AREA_KEYS),
       speciesTypes: new Set(["invasive", "rare", "other_species"]),

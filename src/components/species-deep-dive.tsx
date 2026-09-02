@@ -37,7 +37,13 @@
  * Called by: the "Species Deep Dive" route/tab in the app shell.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useObservations, getSpeciesClassification, getTaxaGroup, TAXA_GROUP_KEYS, type TaxaGroupKey } from "@/lib/observations-store";
+import {
+  useObservations,
+  getSpeciesClassification,
+  getTaxaGroup,
+  TAXA_GROUP_KEYS,
+  type TaxaGroupKey,
+} from "@/lib/observations-store";
 import { useI18n } from "@/lib/i18n";
 import { speciesMap, type SpeciesInfo } from "@/lib/species-map";
 import { getTaxonDetails } from "@/lib/taxonomy-engine";
@@ -67,16 +73,40 @@ function areaMatches(selectedAreas: Set<SurveyAreaKey>, area: SurveyAreaKey | nu
 }
 
 const CATEGORY_COLORS: Record<TaxaGroupKey, { active: string; inactive: string }> = {
-  mammals: { active: "bg-purple-300 text-purple-900 border-purple-500 border-2 font-semibold", inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100" },
-  birds: { active: "bg-sky-300 text-sky-900 border-sky-500 border-2 font-semibold", inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100" },
-  butterflies: { active: "bg-orange-300 text-orange-900 border-orange-500 border-2 font-semibold", inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100" },
-  dragonflies: { active: "bg-teal-300 text-teal-900 border-teal-500 border-2 font-semibold", inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100" },
-  arthropods: { active: "bg-red-300 text-red-900 border-red-500 border-2 font-semibold", inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100" },
-  plants: { active: "bg-lime-300 text-lime-900 border-lime-500 border-2 font-semibold", inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100" },
-  other: { active: "bg-gray-300 text-gray-900 border-gray-500 border-2 font-semibold", inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100" },
+  mammals: {
+    active: "bg-purple-300 text-purple-900 border-purple-500 border-2 font-semibold",
+    inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100",
+  },
+  birds: {
+    active: "bg-sky-300 text-sky-900 border-sky-500 border-2 font-semibold",
+    inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100",
+  },
+  butterflies: {
+    active: "bg-orange-300 text-orange-900 border-orange-500 border-2 font-semibold",
+    inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100",
+  },
+  dragonflies: {
+    active: "bg-teal-300 text-teal-900 border-teal-500 border-2 font-semibold",
+    inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100",
+  },
+  arthropods: {
+    active: "bg-red-300 text-red-900 border-red-500 border-2 font-semibold",
+    inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100",
+  },
+  plants: {
+    active: "bg-lime-300 text-lime-900 border-lime-500 border-2 font-semibold",
+    inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100",
+  },
+  other: {
+    active: "bg-gray-300 text-gray-900 border-gray-500 border-2 font-semibold",
+    inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100",
+  },
 };
 
-const DEFAULT_COLOR = { active: "bg-slate-300 text-slate-900 border-slate-500 border-2 font-semibold", inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100" };
+const DEFAULT_COLOR = {
+  active: "bg-slate-300 text-slate-900 border-slate-500 border-2 font-semibold",
+  inactive: "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100",
+};
 
 // Hex colors for chart lines per category
 const CATEGORY_HEX: Record<TaxaGroupKey, string> = {
@@ -113,7 +143,11 @@ type SpeciesChip = SpeciesInfo & { parentCategory: TaxaGroupKey };
 
 function getSpeciesLabel(entry: SpeciesChip, lang: "he" | "en"): string {
   if (lang === "he") {
-    if (entry.Hebrew_Name && entry.Hebrew_Name !== "N/A" && HEBREW_LETTER_REGEX.test(entry.Hebrew_Name)) {
+    if (
+      entry.Hebrew_Name &&
+      entry.Hebrew_Name !== "N/A" &&
+      HEBREW_LETTER_REGEX.test(entry.Hebrew_Name)
+    ) {
       return entry.Hebrew_Name;
     }
     return entry.Scientific_Name;
@@ -124,16 +158,12 @@ function getSpeciesLabel(entry: SpeciesChip, lang: "he" | "en"): string {
 
 export function SpeciesDeepDive() {
   const { t, lang } = useI18n();
-  const {
-    observations,
-    filters,
-    deepDive,
-    deepDiveActions,
-    observationMonitoringAreaIndex,
-  } = useObservations();
+  const { observations, filters, deepDive, deepDiveActions, observationMonitoringAreaIndex } =
+    useObservations();
   const { category, species, search } = deepDive;
   const activeCategory = category as TaxaGroupKey | null;
-  const { setDeepDiveCategory, toggleDeepDiveSpecies, clearDeepDiveSpecies, setDeepDiveSearch } = deepDiveActions;
+  const { setDeepDiveCategory, toggleDeepDiveSpecies, clearDeepDiveSpecies, setDeepDiveSearch } =
+    deepDiveActions;
   const [isSpeciesDropdownOpen, setIsSpeciesDropdownOpen] = useState(true);
   const speciesDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -151,13 +181,13 @@ export function SpeciesDeepDive() {
 
     // Map canonical categories to Dashboard TaxaGroupKeys
     const categoryMapping: Record<string, TaxaGroupKey> = {
-      "יונקים": "mammals",
-      "עופות": "birds",
-      "פרפרים": "butterflies",
-      "שפיראים": "dragonflies",
+      יונקים: "mammals",
+      עופות: "birds",
+      פרפרים: "butterflies",
+      שפיראים: "dragonflies",
       "פרוקי רגליים": "arthropods",
-      "צמחים": "plants",
-      "שאר המינים": "other"
+      צמחים: "plants",
+      "שאר המינים": "other",
     };
 
     const uniqueSpecies = new Map(speciesMap.map((entry) => [entry.Scientific_Name, entry]));
@@ -185,7 +215,7 @@ export function SpeciesDeepDive() {
       (sp) =>
         sp.Scientific_Name.toLowerCase().includes(q) ||
         (sp.Hebrew_Name && sp.Hebrew_Name !== "N/A" && sp.Hebrew_Name.toLowerCase().includes(q)) ||
-        (sp.English_Name && sp.English_Name !== "N/A" && sp.English_Name.toLowerCase().includes(q))
+        (sp.English_Name && sp.English_Name !== "N/A" && sp.English_Name.toLowerCase().includes(q)),
     );
   }, [activeCategory, search, groupedSpecies]);
 
@@ -204,9 +234,27 @@ export function SpeciesDeepDive() {
         if (!entry || (entry.size > 0 && !entry.has(parts[1]))) return false;
       }
       if (filters.taxa.size > 0 && !filters.taxa.has(getTaxaGroup(o))) return false;
-      if (filters.groups.size > 0 && (!o.user_category || !filters.groups.has(o.user_category))) return false;
-      if (!observationMatchesSelectedAreas(o, filters.areas, filters.monitoringAreas, observationMonitoringAreaIndex)) return false;
-      if (filters.speciesTypes.size > 0 && !filters.speciesTypes.has(getSpeciesClassification(o))) return false;
+      if (!o.user_category || !filters.groups.has(o.user_category)) {
+        return false;
+      }
+
+      if (
+        o.user_category === "local_communities" &&
+        !filters.localCommunitySubgroups.has(o.user_subcategory)
+      ) {
+        return false;
+      }
+      if (
+        !observationMatchesSelectedAreas(
+          o,
+          filters.areas,
+          filters.monitoringAreas,
+          observationMonitoringAreaIndex,
+        )
+      )
+        return false;
+      if (filters.speciesTypes.size > 0 && !filters.speciesTypes.has(getSpeciesClassification(o)))
+        return false;
       return true;
     });
   }, [observations, filters, observationMonitoringAreaIndex]);
@@ -234,7 +282,12 @@ export function SpeciesDeepDive() {
         speciesSet.add(o.scientific_name);
       }
     }
-    return { rows: deepDiveFiltered.length, observers: observers.size, species: speciesSet.size, unidentified };
+    return {
+      rows: deepDiveFiltered.length,
+      observers: observers.size,
+      species: speciesSet.size,
+      unidentified,
+    };
   }, [deepDiveFiltered]);
 
   const categoryObservationCounts = useMemo(() => {
@@ -264,10 +317,17 @@ export function SpeciesDeepDive() {
   }, [globallyFilteredObservations, activeCategory]);
 
   const tableSpecies = useMemo(
-    () => new Set(getTopSpecies(globallyFilteredObservations, species, activeCategory).map((entry) => entry.scientificName)),
-    [globallyFilteredObservations, species, activeCategory]
+    () =>
+      new Set(
+        getTopSpecies(globallyFilteredObservations, species, activeCategory).map(
+          (entry) => entry.scientificName,
+        ),
+      ),
+    [globallyFilteredObservations, species, activeCategory],
   );
-  const activeColors = activeCategory ? (CATEGORY_COLORS[activeCategory] || DEFAULT_COLOR) : DEFAULT_COLOR;
+  const activeColors = activeCategory
+    ? CATEGORY_COLORS[activeCategory] || DEFAULT_COLOR
+    : DEFAULT_COLOR;
 
   useEffect(() => {
     if (!isSpeciesDropdownOpen) return;
@@ -286,20 +346,36 @@ export function SpeciesDeepDive() {
       <div className="shrink-0 flex items-center min-h-[3.5rem] w-full px-4 py-0.5 gap-3">
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold tabular-nums leading-none">{summary.rows.toLocaleString()}</span>
-            <span className="text-[10px] text-muted-foreground leading-tight">{t("totalRows")}</span>
+            <span className="text-lg font-semibold tabular-nums leading-none">
+              {summary.rows.toLocaleString()}
+            </span>
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              {t("totalRows")}
+            </span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold tabular-nums leading-none">{summary.observers.toLocaleString()}</span>
-            <span className="text-[10px] text-muted-foreground leading-tight">{t("uniqueObservers")}</span>
+            <span className="text-lg font-semibold tabular-nums leading-none">
+              {summary.observers.toLocaleString()}
+            </span>
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              {t("uniqueObservers")}
+            </span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold tabular-nums leading-none">{summary.species.toLocaleString()}</span>
-            <span className="text-[10px] text-muted-foreground leading-tight">{t("uniqueSpecies")}</span>
+            <span className="text-lg font-semibold tabular-nums leading-none">
+              {summary.species.toLocaleString()}
+            </span>
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              {t("uniqueSpecies")}
+            </span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-lg font-semibold tabular-nums leading-none">{summary.unidentified.toLocaleString()}</span>
-            <span className="text-[10px] text-muted-foreground leading-tight">{t("unidentified")}</span>
+            <span className="text-lg font-semibold tabular-nums leading-none">
+              {summary.unidentified.toLocaleString()}
+            </span>
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              {t("unidentified")}
+            </span>
           </div>
         </div>
         <div className="flex flex-1 flex-wrap items-center justify-center gap-2">
@@ -316,7 +392,9 @@ export function SpeciesDeepDive() {
                 }`}
               >
                 {t(`tg_${cat}`)}
-                <span className="opacity-60 text-[10px]">({categoryObservationCounts[cat].toLocaleString()})</span>
+                <span className="opacity-60 text-[10px]">
+                  ({categoryObservationCounts[cat].toLocaleString()})
+                </span>
               </button>
             );
           })}
@@ -325,83 +403,100 @@ export function SpeciesDeepDive() {
 
       {/* Species sub-filter row - 8% height */}
       <div className="h-[8%] shrink-0 flex items-center gap-3 px-4 py-1.5 border-b">
-          <div ref={speciesDropdownRef} className="relative shrink-0 flex items-center gap-1">
-            <div className="relative w-44">
-              <Search className="absolute start-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                value={search}
-                onChange={(e) => setDeepDiveSearch(e.target.value)}
-                placeholder={t("searchSpecies")}
-                className="ps-7 h-7 text-xs"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsSpeciesDropdownOpen((o) => !o)}
-              title={t("searchSpecies")}
-              className={`shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                isSpeciesDropdownOpen ? "bg-muted border-foreground/30" : "border-input hover:bg-muted"
-              }`}
-            >
-              <ListFilter className="h-3.5 w-3.5" />
-            </button>
-
-            {isSpeciesDropdownOpen && (
-              <div className="absolute top-full start-0 mt-1 z-[9999] w-64 max-h-64 overflow-y-auto rounded-md border bg-white shadow-lg" style={{ zIndex: 9999 }}>
-                <div className="sticky top-0 flex items-center justify-between border-b bg-white px-2 py-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">{t("searchSpecies")}</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsSpeciesDropdownOpen(false)}
-                    className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    מזער
-                  </button>
-                </div>
-                <div className="p-1">
-                  <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted">
-                    <input
-                      type="checkbox"
-                      checked={species.size === 0}
-                      onChange={() => clearDeepDiveSpecies()}
-                    />
-                    {t("all")}
-                  </label>
-                  {speciesList
-                    .filter((sp) => !activeCategory || (speciesObservationCounts.get(sp.Scientific_Name) ?? 0) > 0)
-                    .sort((a, b) => (speciesObservationCounts.get(b.Scientific_Name) ?? 0) - (speciesObservationCounts.get(a.Scientific_Name) ?? 0))
-                    .map((sp) => {
-                      const count = speciesObservationCounts.get(sp.Scientific_Name) ?? 0;
-                      const isSelected = species.has(sp.Scientific_Name);
-                      return (
-                        <label
-                          key={sp.Scientific_Name}
-                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleDeepDiveSpecies(sp.Scientific_Name)}
-                          />
-                          <span className="truncate">
-                            {getSpeciesLabel(sp, lang)} ({count.toLocaleString()})
-                          </span>
-                        </label>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
+        <div ref={speciesDropdownRef} className="relative shrink-0 flex items-center gap-1">
+          <div className="relative w-44">
+            <Search className="absolute start-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={search}
+              onChange={(e) => setDeepDiveSearch(e.target.value)}
+              placeholder={t("searchSpecies")}
+              className="ps-7 h-7 text-xs"
+            />
           </div>
+          <button
+            type="button"
+            onClick={() => setIsSpeciesDropdownOpen((o) => !o)}
+            title={t("searchSpecies")}
+            className={`shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+              isSpeciesDropdownOpen
+                ? "bg-muted border-foreground/30"
+                : "border-input hover:bg-muted"
+            }`}
+          >
+            <ListFilter className="h-3.5 w-3.5" />
+          </button>
 
-          <div className="flex-1" />
+          {isSpeciesDropdownOpen && (
+            <div
+              className="absolute top-full start-0 mt-1 z-[9999] w-64 max-h-64 overflow-y-auto rounded-md border bg-white shadow-lg"
+              style={{ zIndex: 9999 }}
+            >
+              <div className="sticky top-0 flex items-center justify-between border-b bg-white px-2 py-1.5">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t("searchSpecies")}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsSpeciesDropdownOpen(false)}
+                  className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  מזער
+                </button>
+              </div>
+              <div className="p-1">
+                <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted">
+                  <input
+                    type="checkbox"
+                    checked={species.size === 0}
+                    onChange={() => clearDeepDiveSpecies()}
+                  />
+                  {t("all")}
+                </label>
+                {speciesList
+                  .filter(
+                    (sp) =>
+                      !activeCategory ||
+                      (speciesObservationCounts.get(sp.Scientific_Name) ?? 0) > 0,
+                  )
+                  .sort(
+                    (a, b) =>
+                      (speciesObservationCounts.get(b.Scientific_Name) ?? 0) -
+                      (speciesObservationCounts.get(a.Scientific_Name) ?? 0),
+                  )
+                  .map((sp) => {
+                    const count = speciesObservationCounts.get(sp.Scientific_Name) ?? 0;
+                    const isSelected = species.has(sp.Scientific_Name);
+                    return (
+                      <label
+                        key={sp.Scientific_Name}
+                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleDeepDiveSpecies(sp.Scientific_Name)}
+                        />
+                        <span className="truncate">
+                          {getSpeciesLabel(sp, lang)} ({count.toLocaleString()})
+                        </span>
+                      </label>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
         </div>
+
+        <div className="flex-1" />
+      </div>
 
       {/* Map Container */}
       <div className="h-[50%] shrink-0 px-2 pt-1">
         <div className="h-full w-full rounded-lg shadow-sm overflow-hidden">
           <ObservationMap
-            data={globallyFilteredObservations.filter((o) => !category || getTaxaGroup(o) === category)}
+            data={globallyFilteredObservations.filter(
+              (o) => !category || getTaxaGroup(o) === category,
+            )}
             selectedSpecies={species}
           />
         </div>

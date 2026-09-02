@@ -98,7 +98,7 @@ const GROUP_TRANSLATIONS: Record<string, { he: string; en: string }> = {
 // Maps raw CSV group values to the four UI category keys
 const CATEGORY_MAP: Record<string, string> = {
   expert: "expert",
-  student: "student",
+  student: "local_communities",
   mechnistim: "local_communities",
   zevulun: "local_communities",
   yizrael: "local_communities",
@@ -383,6 +383,7 @@ export type Filters = {
   time: Map<string, Set<string>>;
   taxa: Set<TaxaGroupKey>;
   groups: Set<string>;
+  localCommunitySubgroups: Set<string>;
   researchOnly: boolean;
   /** Empty set = no area filter (show all). Non-empty = only show observations inside selected areas. */
   areas: Set<SurveyAreaKey>;
@@ -451,6 +452,7 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
       "other",
     ]),
     groups: new Set(),
+    localCommunitySubgroups: new Set(["yizrael", "zevulun", "student", "mechnistim"]),
     researchOnly: false,
     areas: new Set<SurveyAreaKey>(SURVEY_AREA_KEYS),
     speciesTypes: new Set(["invasive", "rare", "other_species"]),
@@ -604,9 +606,7 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
           .filter((obs): obs is Observation => obs !== null);
 
         // Load Merlin expert observations CSV
-        const merlinResponse = await fetch(
-          "/MERLIN all observations for Zohar.csv", 
-        );
+        const merlinResponse = await fetch("/MERLIN all observations for Zohar.csv");
         const merlinText = await merlinResponse.text();
         const merlinData = Papa.parse<Record<string, string>>(merlinText, {
           header: true,
