@@ -26,6 +26,7 @@ const dict: Dict = {
   admin: { he: "ניהול", en: "Admin Panel" },
   language: { he: "English", en: "עברית" },
   uploadCsv: { he: "העלאת קובץ CSV", en: "Upload iNaturalist CSV" },
+  exportCsv: { he: "ייצוא CSV", en: "Export CSV" },
   dropOrClick: { he: "גרור קובץ או לחץ לבחירה", en: "Drag a file or click to select" },
   parsed: { he: "תצפיות נטענו", en: "observations loaded" },
   filters: { he: "מסננים", en: "Filters" },
@@ -96,6 +97,10 @@ const dict: Dict = {
   all: { he: "הכל", en: "All" },
   searchSpecies: { he: "חיפוש מינים...", en: "Search species..." },
 };
+
+export function getHebrewLabel(key: string): string {
+  return dict[key]?.he ?? key;
+}
 
 const groupKeyMap: Record<string, keyof typeof dict> = {
   "General Public": "general_public",

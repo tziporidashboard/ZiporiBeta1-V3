@@ -35,6 +35,8 @@ import { getTaxonDetails } from "@/lib/taxonomy-engine";
 import { getObservationArea, type SurveyAreaKey } from "@/lib/survey-polygons";
 import { observationMatchesSelectedAreas } from "@/lib/monitoring-areas";
 import { useI18n } from "@/lib/i18n";
+import { exportObservations } from "@/lib/export-observations";
+import { Button } from "@/components/ui/button";
 import { TaxaFilterBar } from "@/components/taxa-filter-bar";
 import { ObservationMap } from "@/components/observation-map";
 import { MetricsTable } from "@/components/metrics-table";
@@ -61,7 +63,7 @@ function areaMatches(selectedAreas: Set<SurveyAreaKey>, area: SurveyAreaKey | nu
 
 export function Dashboard() {
   const { t, lang } = useI18n();
-  const { observations, filters, observationMonitoringAreaIndex } = useObservations();
+  const { observations, filters, monitoringAreas, observationMonitoringAreaIndex } = useObservations();
 
   const filtered = useMemo(() => {
     return observations.filter((o) => {
@@ -344,7 +346,18 @@ export function Dashboard() {
         <div className="flex justify-center max-w-full overflow-x-auto scrollbar-hide">
           <TaxaFilterBar />
         </div>
-        <div />
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={filtered.length === 0}
+            onClick={() =>
+              exportObservations(filtered, monitoringAreas, observationMonitoringAreaIndex)
+            }
+          >
+            {t("exportCsv")}
+          </Button>
+        </div>
       </div>
 
       {/* Map Container */}
