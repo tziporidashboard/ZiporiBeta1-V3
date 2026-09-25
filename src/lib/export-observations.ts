@@ -40,6 +40,7 @@ export function exportObservations(
       "מקור": o.source === "inaturalist" ? "iNaturalist" : o.source === "merlin" ? "MERLIN" : "",
       "קישור למקור": o.source_url ?? "",
       "תאריך תצפית": observedOn,
+      "שעת תצפית": o.observed_time ?? "",
       "צופה": o.user_login,
       "קבוצת צופה": translateGroupName(o.user_category, "he"),
       "תת-קבוצה": translateGroupName(o.user_subcategory, "he"),

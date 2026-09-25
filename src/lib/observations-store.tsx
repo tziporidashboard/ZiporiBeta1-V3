@@ -65,6 +65,7 @@ export type { SurveyAreaKey };
 
 export type Observation = {
   observed_on: string; // YYYY-MM-DD
+  observed_time?: string;
   latitude: number;
   longitude: number;
   user_login: string;
@@ -252,6 +253,15 @@ function parseObservedOn(value: string): string {
   return `${d}/${m}/${year}`;
 }
 
+/** Extract the recorded clock time without applying timezone conversions. */
+function parseObservedTime(value: string): string | undefined {
+  const match = value.match(/(?:^|[T\s])(\d{1,2}:\d{2}(?::\d{2})?)(?=$|[Z+\-\s])/);
+  if (!match) return undefined;
+  const [hour, minute, second = 0] = match[1].split(":").map(Number);
+  if (hour > 23 || minute > 59 || second > 59) return undefined;
+  return match[1];
+}
+
 function parseMerlinRow(row: Record<string, string>, index: number): Observation | null {
   const lat = parseFloat((row.decimalLatitudeStart || "").trim());
   const lon = parseFloat((row.decimalLongitudeStart || "").trim());
@@ -303,6 +313,7 @@ function parseMerlinRow(row: Record<string, string>, index: number): Observation
 
   return {
     observed_on: observedOn,
+    observed_time: parseObservedTime(row.timeStamp || ""),
     latitude: lat,
     longitude: lon,
     user_login: userLogin,
@@ -585,6 +596,7 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
 
             const observation: Observation = {
               observed_on: observedOn,
+              observed_time: parseObservedTime(row.observed_on_string || ""),
               latitude: lat,
               longitude: lon,
               user_login: userLogin,

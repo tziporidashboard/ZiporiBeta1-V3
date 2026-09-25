@@ -27,6 +27,8 @@ const dict: Dict = {
   language: { he: "English", en: "עברית" },
   uploadCsv: { he: "העלאת קובץ CSV", en: "Upload iNaturalist CSV" },
   exportCsv: { he: "ייצוא CSV", en: "Export CSV" },
+  exportFilteredObservations: { he: "ייצוא תצפיות מסוננות", en: "Export filtered observations" },
+  exportAllObservations: { he: "ייצוא כל התצפיות", en: "Export all observations" },
   dropOrClick: { he: "גרור קובץ או לחץ לבחירה", en: "Drag a file or click to select" },
   parsed: { he: "תצפיות נטענו", en: "observations loaded" },
   filters: { he: "מסננים", en: "Filters" },

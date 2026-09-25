@@ -37,6 +37,12 @@ import { observationMatchesSelectedAreas } from "@/lib/monitoring-areas";
 import { useI18n } from "@/lib/i18n";
 import { exportObservations } from "@/lib/export-observations";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TaxaFilterBar } from "@/components/taxa-filter-bar";
 import { ObservationMap } from "@/components/observation-map";
 import { MetricsTable } from "@/components/metrics-table";
@@ -62,7 +68,7 @@ function areaMatches(selectedAreas: Set<SurveyAreaKey>, area: SurveyAreaKey | nu
 }
 
 export function Dashboard() {
-  const { t, lang } = useI18n();
+  const { t, lang, dir } = useI18n();
   const { observations, filters, monitoringAreas, observationMonitoringAreaIndex } = useObservations();
 
   const filtered = useMemo(() => {
@@ -347,16 +353,30 @@ export function Dashboard() {
           <TaxaFilterBar />
         </div>
         <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={filtered.length === 0}
-            onClick={() =>
-              exportObservations(filtered, monitoringAreas, observationMonitoringAreaIndex)
-            }
-          >
-            {t("exportCsv")}
-          </Button>
+          <DropdownMenu dir={dir}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={observations.length === 0}>
+                {t("exportCsv")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="z-[1100]">
+              <DropdownMenuItem
+                disabled={filtered.length === 0}
+                onSelect={() =>
+                  exportObservations(filtered, monitoringAreas, observationMonitoringAreaIndex)
+                }
+              >
+                {t("exportFilteredObservations")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() =>
+                  exportObservations(observations, monitoringAreas, observationMonitoringAreaIndex)
+                }
+              >
+                {t("exportAllObservations")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
