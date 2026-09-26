@@ -363,14 +363,14 @@ export function Dashboard() {
               <DropdownMenuItem
                 disabled={filtered.length === 0}
                 onSelect={() =>
-                  exportObservations(filtered, monitoringAreas, observationMonitoringAreaIndex)
+                  exportObservations(filtered, monitoringAreas, observationMonitoringAreaIndex, lang)
                 }
               >
                 {t("exportFilteredObservations")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() =>
-                  exportObservations(observations, monitoringAreas, observationMonitoringAreaIndex)
+                  exportObservations(observations, monitoringAreas, observationMonitoringAreaIndex, lang)
                 }
               >
                 {t("exportAllObservations")}

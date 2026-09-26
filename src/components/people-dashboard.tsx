@@ -36,6 +36,7 @@ import {
   useObservations,
   getTaxaGroup,
   getSpeciesClassification,
+  translateGroupName,
   type Observation,
   REA_SHAISH_NAME,
 } from "@/lib/observations-store";
@@ -88,7 +89,7 @@ const REA_SHAISH_ACTIVE_CHIP = "bg-violet-200 text-violet-900 border-violet-400 
 const USER_INACTIVE_CHIP = "bg-gray-50 text-gray-500 border-gray-300 font-normal hover:bg-gray-100";
 
 export function PeopleDashboard() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { observations, filters, resetVersion, observationMonitoringAreaIndex } =
     useObservations();
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
@@ -255,7 +256,7 @@ export function PeopleDashboard() {
                   isActive ? ACTIVE_CHIP : INACTIVE_CHIP
                 }`}
               >
-                {group.label}
+                {lang === "he" ? group.label : translateGroupName(group.key === "public" ? "online_communities" : group.key, lang)}
                 <span className="opacity-60 text-[10px]">
                   ({(groupCounts.get(group.key) ?? 0).toLocaleString()})
                 </span>
@@ -273,14 +274,14 @@ export function PeopleDashboard() {
             <Input
               value={userSearch}
               onChange={(e) => setUserSearch(e.target.value)}
-              placeholder="חיפוש אנשים..."
+              placeholder={t("searchPeople")}
               className="ps-7 h-7 text-xs"
             />
           </div>
           <button
             type="button"
             onClick={() => setIsUserDropdownOpen((o) => !o)}
-            title="חיפוש אנשים..."
+            title={t("searchPeople")}
             className={`shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
               isUserDropdownOpen ? "bg-muted border-foreground/30" : "border-input hover:bg-muted"
             }`}
@@ -294,13 +295,13 @@ export function PeopleDashboard() {
               style={{ zIndex: 9999 }}
             >
               <div className="sticky top-0 flex items-center justify-between border-b bg-white px-2 py-1.5">
-                <span className="text-xs font-medium text-muted-foreground">חיפוש אנשים...</span>
+                <span className="text-xs font-medium text-muted-foreground">{t("searchPeople")}</span>
                 <button
                   type="button"
                   onClick={() => setIsUserDropdownOpen(false)}
                   className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  מזער
+                  {t("minimize")}
                 </button>
               </div>
               <div className="p-1">

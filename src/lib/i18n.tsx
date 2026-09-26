@@ -32,6 +32,11 @@ const dict: Dict = {
   dropOrClick: { he: "גרור קובץ או לחץ לבחירה", en: "Drag a file or click to select" },
   parsed: { he: "תצפיות נטענו", en: "observations loaded" },
   filters: { he: "מסננים", en: "Filters" },
+  filterTip: {
+    he: "טיפ: ניתן לסגור את חלונית המסננים ולפתוח אותה שוב בעת הצורך באמצעות התפריט.",
+    en: "Tip: You can close the filters panel and reopen it anytime from the menu.",
+  },
+  underRestoration: { he: "בשיקום", en: "Under Restoration" },
   time: { he: "זמן", en: "Time" },
   years: { he: "שנים", en: "Years" },
   months: { he: "חודשים", en: "Months" },
@@ -98,10 +103,41 @@ const dict: Dict = {
   people: { he: "אנשים", en: "People" },
   all: { he: "הכל", en: "All" },
   searchSpecies: { he: "חיפוש מינים...", en: "Search species..." },
+  searchPeople: { he: "חיפוש אנשים...", en: "Search people..." },
+  minimize: { he: "מזער", en: "Minimize" },
+  speciesName: { he: "שם המין", en: "Species Name" },
+  observationCount: { he: "מספר תצפיות", en: "Observations" },
+  annualTrend: { he: "מגמה שנתית", en: "Annual Trend" },
+  seasonalStatus: { he: "עונה פעילה", en: "Seasonal Status" },
+  allCategories: { he: "כל הקטגוריות", en: "All Categories" },
+  otherCategories: { he: "שאר הקטגוריות", en: "Other Categories" },
+  monitoringArea: { he: "אזור ניטור", en: "Monitoring Area" },
+  observationDetails: { he: "פרטי תצפית", en: "Observation Details" },
+  close: { he: "סגור", en: "Close" },
+  noObservationDetails: { he: "לא נמצאו פרטים עבור תצפית זו.", en: "No details found for this observation." },
+  userName: { he: "שם משתמש", en: "User Name" },
+  professionalObserver: { he: "מנטר מקצועי", en: "Professional Observer" },
+  viewOnINaturalist: { he: "צפה ב-iNaturalist", en: "View on iNaturalist" },
 };
+
+const ENGLISH_SEASONAL_LABELS: Record<string, string> = {
+  "יציב שנתית": "Stable Year-Round",
+  "חורף": "Winter",
+  "אביב": "Spring",
+  "קיץ": "Summer",
+  "סתיו": "Autumn",
+};
+
+export function translateSeasonalStatus(status: string, lang: Lang): string {
+  return lang === "en" ? (ENGLISH_SEASONAL_LABELS[status] ?? status) : status;
+}
 
 export function getHebrewLabel(key: string): string {
   return dict[key]?.he ?? key;
+}
+
+export function getLabel(key: string, lang: Lang): string {
+  return dict[key]?.[lang] ?? key;
 }
 
 const groupKeyMap: Record<string, keyof typeof dict> = {

@@ -18,7 +18,7 @@
  */
 import { useMemo } from "react";
 import type { Observation } from "@/lib/observations-store";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, translateSeasonalStatus } from "@/lib/i18n";
 import { ArrowDownLeft, ArrowDownRight, ArrowUpLeft, ArrowUpRight, Minus } from "lucide-react";
 
 type UserRow = {
@@ -99,7 +99,7 @@ export function UserAnalyticsTable({
   observations: Observation[];
   topN?: number;
 }) {
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
 
   const rows = useMemo<UserRow[]>(() => {
     if (observations.length === 0) return [];
@@ -155,10 +155,6 @@ export function UserAnalyticsTable({
   }
 
   const labels = {
-    userName: { he: "שם משתמש", en: "User Name" },
-    observations: { he: "מספר תצפיות", en: "Observations" },
-    annualTrend: { he: "מגמה שנתית", en: "Annual Trend" },
-    seasonalStatus: { he: "עונה פעילה", en: "Seasonal Status" },
     researchGrade: { he: "דירוג מחקרי", en: "Research Grade" },
   };
 
@@ -167,11 +163,11 @@ export function UserAnalyticsTable({
       <table className="w-full table-fixed text-xs">
         <thead className="h-8">
           <tr className="border-b bg-secondary/60 text-[10px] font-semibold text-muted-foreground">
-            <th className="w-[30%] px-3 py-1 text-start">{labels.userName[lang]}</th>
-            <th className="w-[15%] px-2 py-1 text-center">{labels.observations[lang]}</th>
-            <th className="w-[20%] px-2 py-1 text-center">{labels.annualTrend[lang]}</th>
+            <th className="w-[30%] px-3 py-1 text-start">{t("userName")}</th>
+            <th className="w-[15%] px-2 py-1 text-center">{t("observationCount")}</th>
+            <th className="w-[20%] px-2 py-1 text-center">{t("annualTrend")}</th>
             <th className="w-[17%] px-2 py-1 text-center">{labels.researchGrade[lang]}</th>
-            <th className="w-[18%] px-2 py-1 text-center">{labels.seasonalStatus[lang]}</th>
+            <th className="w-[18%] px-2 py-1 text-center">{t("seasonalStatus")}</th>
           </tr>
         </thead>
         <tbody>
@@ -210,7 +206,7 @@ export function UserAnalyticsTable({
                     `${Math.round(row.researchGradePct)}%`
                   )}
                 </td>
-                <td className="px-2 py-1 text-center align-middle">{row.season}</td>
+                <td className="px-2 py-1 text-center align-middle">{translateSeasonalStatus(row.season, lang)}</td>
               </tr>
             );
           })}

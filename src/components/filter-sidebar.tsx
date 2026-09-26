@@ -36,6 +36,7 @@ import {
   translateMonth,
 } from "@/lib/observations-store";
 import { SURVEY_AREA_KEYS, translateArea } from "@/lib/survey-polygons";
+import { translateMonitoringAreaName } from "@/lib/monitoring-areas";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -311,7 +312,7 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="rounded-md border border-primary/15 bg-muted/60 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
-        💡 טיפ: ניתן לסגור את חלונית המסננים ולפתוח אותה שוב בעת הצורך באמצעות התפריט.
+        💡 {t("filterTip")}
       </div>
 
       <Section title={t("years")}>
@@ -416,7 +417,7 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
       </Section>
 
       <Section title={t("monitoringAreas")}>
-        <p className="mb-2 px-1 text-sm font-medium text-gray-500">בשיקום</p>
+        <p className="mb-2 px-1 text-sm font-medium text-gray-500">{t("underRestoration")}</p>
         {SURVEY_AREA_KEYS.filter((key) => key !== "other_areas").map((key) => (
           <Check
             key={key}
@@ -431,7 +432,7 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
             key={feature.properties.id}
             checked={filters.monitoringAreas.has(feature.properties.id)}
             onChange={() => toggleMonitoringArea(feature.properties.id)}
-            label={feature.properties.name}
+            label={translateMonitoringAreaName(feature.properties, lang)}
           />
         ))}
         <hr className="my-2 border-gray-200" />

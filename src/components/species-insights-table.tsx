@@ -24,7 +24,7 @@ import { useMemo } from "react";
 import { getTaxaGroup, type Observation, type TaxaGroupKey } from "@/lib/observations-store";
 import { SPECIES_MAP } from "@/lib/species-dictionary";
 import { speciesMap } from "@/lib/species-map";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, translateSeasonalStatus } from "@/lib/i18n";
 import { ArrowDownLeft, ArrowDownRight, ArrowUpLeft, ArrowUpRight, Minus } from "lucide-react";
 
 const CHIP_SPECIES_NAMES = new Set(
@@ -117,7 +117,7 @@ export function SpeciesInsightsTable({
   prioritySpecies: Set<string>;
   priorityCategory: TaxaGroupKey | null;
 }) {
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
   const rows = useMemo(
     () => getTopSpecies(data, prioritySpecies, priorityCategory),
     [data, prioritySpecies, priorityCategory]
@@ -128,11 +128,11 @@ export function SpeciesInsightsTable({
       <table className="h-full w-full table-fixed text-xs">
         <thead className="h-8">
           <tr className="border-b bg-secondary/60 text-[10px] font-semibold text-muted-foreground">
-            <th className="w-[30%] px-3 py-1 text-start">שם המין</th>
-            <th className="w-[15%] px-2 py-1 text-center">מספר תצפיות</th>
-            <th className="w-[20%] px-2 py-1 text-center">מגמה שנתית</th>
-            <th className="w-[17%] px-2 py-1 text-center">דרגת מחקר</th>
-            <th className="w-[18%] px-2 py-1 text-center">עונה פעילה</th>
+            <th className="w-[30%] px-3 py-1 text-start">{t("speciesName")}</th>
+            <th className="w-[15%] px-2 py-1 text-center">{t("observationCount")}</th>
+            <th className="w-[20%] px-2 py-1 text-center">{t("annualTrend")}</th>
+            <th className="w-[17%] px-2 py-1 text-center">{t("researchOnly")}</th>
+            <th className="w-[18%] px-2 py-1 text-center">{t("seasonalStatus")}</th>
           </tr>
         </thead>
         <tbody className="h-[calc(100%-2rem)]">
@@ -142,7 +142,7 @@ export function SpeciesInsightsTable({
               <td className="px-2 py-1 text-center align-middle tabular-nums">{row.observations.toLocaleString()}</td>
               <td className="px-2 py-1 text-center align-middle"><span className="inline-flex items-center justify-center"><TrendIcon trend={row.trend} rtl={lang === "he"} title={row.annualBreakdown} /></span></td>
               <td className="px-2 py-1 text-center align-middle tabular-nums">{row.researchPct.toFixed(1)}%</td>
-              <td className="px-2 py-1 text-center align-middle">{row.seasonalStatus}</td>
+              <td className="px-2 py-1 text-center align-middle">{translateSeasonalStatus(row.seasonalStatus, lang)}</td>
             </tr>
           ))}
         </tbody>

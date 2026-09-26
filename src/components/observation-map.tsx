@@ -41,7 +41,8 @@ import L from "leaflet";
 import type { Observation } from "@/lib/observations-store";
 import { useObservations, getTaxaGroup, translateSpeciesName } from "@/lib/observations-store";
 import { useI18n } from "@/lib/i18n";
-import { SURVEY_POLYGONS, SURVEY_AREA_KEYS, type SurveyAreaKey } from "@/lib/survey-polygons";
+import { SURVEY_POLYGONS, SURVEY_AREA_KEYS, translateArea, type SurveyAreaKey } from "@/lib/survey-polygons";
+import { translateMonitoringAreaName } from "@/lib/monitoring-areas";
 
 function FitBounds({ obs }: { obs: Observation[] }) {
   const map = useMap();
@@ -122,7 +123,7 @@ type Bubble = {
 
 export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { data: Observation[]; selectedSpecies?: Set<string> }) {
   const { filters, monitoringAreas, observations: allObservations } = useObservations();
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
   const selectedAreas = new Set(filters.areas) as Set<SurveyAreaKey>;
   const baseAreaKeys = SURVEY_AREA_KEYS.filter((k) => k !== "other_areas");
   const [zoom, setZoom] = useState<number>(7);
@@ -301,7 +302,7 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
         />
         {visibleMonitoringAreas && (
           <GeoJSON
-            key={Array.from(filters.monitoringAreas).sort().join("|")}
+            key={`${lang}:${Array.from(filters.monitoringAreas).sort().join("|")}`}
             data={visibleMonitoringAreas}
             style={() => ({
               color: "#4b5563",
@@ -313,7 +314,11 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
               renderer: canvasRenderer,
             })}
             onEachFeature={(feature, layer) => {
-              layer.bindTooltip(String(feature.properties?.name ?? "אזור ניטור"), {
+              layer.bindTooltip(translateMonitoringAreaName({
+                id: String(feature.properties?.id ?? ""),
+                name: String(feature.properties?.name ?? t("monitoringArea")),
+                color: String(feature.properties?.color ?? ""),
+              }, lang), {
                 sticky: true,
                 direction: "top",
                 opacity: 0.95,
@@ -342,7 +347,7 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
               renderer={canvasRenderer}
             >
               <Tooltip sticky direction="top" opacity={0.95}>
-                {areaKey}
+                {translateArea(areaKey, lang)}
               </Tooltip>
             </Polygon>
           );
@@ -374,18 +379,18 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
         <div ref={sidebarRef} className="absolute top-0 right-0 h-full w-80 bg-white shadow-2xl z-[1000] p-4 overflow-y-auto flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">
-              פרטי תצפית ({selectedObservations.length})
+              {t("observationDetails")} ({selectedObservations.length})
             </h3>
             <button
               type="button"
               onClick={() => setSelectedBubbleIds(null)}
               className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
             >
-              ✕ סגור
+              ✕ {t("close")}
             </button>
           </div>
           {selectedObservations.length === 0 && (
-            <p className="text-sm text-muted-foreground">לא נמצאו פרטים עבור תצפית זו.</p>
+            <p className="text-sm text-muted-foreground">{t("noObservationDetails")}</p>
           )}
           {selectedObservations.map((obs, idx) => (
             <div
@@ -399,11 +404,11 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
                 {lang === "he" ? translateSpeciesName(obs.scientific_name) : obs.scientific_name}
               </div>
               <div>
-                <span className="font-medium">שם משתמש: </span>
+                <span className="font-medium">{t("userName")}: </span>
                 {obs.user_login}
               </div>
               <div>
-                <span className="font-medium">תאריך: </span>
+                <span className="font-medium">{t("date")}: </span>
                 {obs.observed_on}
               </div>
               <div>
@@ -414,7 +419,7 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
                       : "bg-blue-100 text-blue-800"
                   }`}
                 >
-                  {obs.source === "inaturalist" ? "iNaturalist" : "מנטר מקצועי"}
+                  {obs.source === "inaturalist" ? "iNaturalist" : t("professionalObserver")}
                 </span>
               </div>
               {obs.source === "inaturalist" && obs.source_url && (
@@ -424,7 +429,7 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
                   rel="noopener noreferrer"
                   className="mt-1 inline-block rounded-md bg-emerald-600 px-3 py-1.5 text-center text-xs font-medium text-white hover:bg-emerald-700"
                 >
-                  צפה ב-iNaturalist
+                  {t("viewOnINaturalist")}
                 </a>
               )}
             </div>

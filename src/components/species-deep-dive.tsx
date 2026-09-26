@@ -440,7 +440,7 @@ export function SpeciesDeepDive() {
                   onClick={() => setIsSpeciesDropdownOpen(false)}
                   className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  מזער
+                  {t("minimize")}
                 </button>
               </div>
               <div className="p-1">
