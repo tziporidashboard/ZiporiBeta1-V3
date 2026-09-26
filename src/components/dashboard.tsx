@@ -29,6 +29,7 @@
  *   `TaxaFilterBar`, `ObservationMap`, `MetricsTable`, `TimeSeriesChart`.
  * Called by: `src/routes/index.tsx` (the `/` route).
  */
+import { matchesQualitySelection } from "@/lib/quality-filter";
 import { useMemo } from "react";
 import { useObservations, getTaxaGroup, getSpeciesClassification } from "@/lib/observations-store";
 import { getTaxonDetails } from "@/lib/taxonomy-engine";
@@ -83,12 +84,8 @@ export function Dashboard() {
         }
       }
 
-      // Research grade filter
-      if (filters.researchOnly) {
-        if (!o.quality_grade || o.quality_grade !== "research") {
-          return false;
-        }
-      }
+      // Quality selection filter
+      if (!matchesQualitySelection(o, filters.qualityGrades)) return false;
 
       // Time filter (year/month) - DD/MM/YYYY format
       if (filters.time.size > 0) {
@@ -179,12 +176,8 @@ export function Dashboard() {
         }
       }
 
-      // Research grade filter
-      if (filters.researchOnly) {
-        if (!o.quality_grade || o.quality_grade !== "research") {
-          return false;
-        }
-      }
+      // Quality selection filter
+      if (!matchesQualitySelection(o, filters.qualityGrades)) return false;
 
       // Time filter (year/month) - DD/MM/YYYY format
       if (filters.time.size > 0) {
@@ -254,12 +247,8 @@ export function Dashboard() {
         }
       }
 
-      // Research grade filter
-      if (filters.researchOnly) {
-        if (!o.quality_grade || o.quality_grade !== "research") {
-          return false;
-        }
-      }
+      // Quality selection filter
+      if (!matchesQualitySelection(o, filters.qualityGrades)) return false;
 
       // Time filter (year/month) - DD/MM/YYYY format
       if (filters.time.size > 0) {

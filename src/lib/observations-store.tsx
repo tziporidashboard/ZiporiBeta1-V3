@@ -26,7 +26,7 @@
  *
  * Filter state (`Filters` type) covers: `dateRange`, `time`
  *   (year -> selected months), `taxa`, `groups`, `areas`,
- *   `monitoringAreas`, `speciesTypes`, `researchOnly`.
+ *   `monitoringAreas`, `speciesTypes`, `qualityGrades`.
  *
  * Exports: `ObservationsProvider`, `useObservations()`, the `Observation`
  *   type, and taxa/species/group classification + translation helpers
@@ -41,6 +41,7 @@
  *   `ObservationsProvider`), and every component that calls
  *   `useObservations()`.
  */
+import { createDefaultQualitySelection, type QualityGrade } from "@/lib/quality-filter";
 import {
   createContext,
   useContext,
@@ -395,7 +396,7 @@ export type Filters = {
   taxa: Set<TaxaGroupKey>;
   groups: Set<string>;
   localCommunitySubgroups: Set<string>;
-  researchOnly: boolean;
+  qualityGrades: Set<QualityGrade>;
   /** Empty set = no area filter (show all). Non-empty = only show observations inside selected areas. */
   areas: Set<SurveyAreaKey>;
   /** Empty set = no species type filter. Non-empty = only show observations matching selected species types. */
@@ -464,7 +465,7 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
     ]),
     groups: new Set(),
     localCommunitySubgroups: new Set(["yizrael", "zevulun", "student", "mechnistim"]),
-    researchOnly: false,
+    qualityGrades: createDefaultQualitySelection(),
     areas: new Set<SurveyAreaKey>(SURVEY_AREA_KEYS),
     speciesTypes: new Set(["invasive", "rare", "other_species"]),
     monitoringAreas: new Set(),

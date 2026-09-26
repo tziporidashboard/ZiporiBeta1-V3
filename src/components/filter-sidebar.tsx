@@ -25,6 +25,7 @@
  * Called by: `@/components/dashboard.tsx` (or the route that toggles the
  *   filter panel open/closed via `onClose`).
  */
+import { QUALITY_OPTIONS } from "@/lib/quality-filter";
 import { useMemo, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -334,11 +335,19 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
       </Section>
 
       <Section title={t("quality")}>
-        <Check
-          checked={filters.researchOnly}
-          onChange={(b) => setFilters((p) => ({ ...p, researchOnly: b }))}
-          label={t("researchOnly")}
-        />
+        {QUALITY_OPTIONS.map(({ value, labelKey }) => (
+          <Check
+            key={value}
+            checked={filters.qualityGrades.has(value)}
+            onChange={(checked) => setFilters((previous) => {
+              const qualityGrades = new Set(previous.qualityGrades);
+              if (checked) qualityGrades.add(value);
+              else qualityGrades.delete(value);
+              return { ...previous, qualityGrades };
+            })}
+            label={t(labelKey)}
+          />
+        ))}
       </Section>
 
       <Section title={t("speciesType")}>

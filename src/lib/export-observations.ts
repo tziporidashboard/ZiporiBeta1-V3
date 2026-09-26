@@ -54,7 +54,7 @@ export function exportObservations(
   };
   const qualityLabels: Record<string, string> = {
     research: getLabel("researchOnly", lang),
-    needs_id: lang === "en" ? "Needs ID" : "דורש זיהוי",
+    needs_id: getLabel("needsId", lang),
     casual: lang === "en" ? "Casual" : "מזדמן",
   };
   const areaNames = new Map(

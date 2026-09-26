@@ -36,6 +36,7 @@
  *   `@/components/ui/input`.
  * Called by: the "Species Deep Dive" route/tab in the app shell.
  */
+import { matchesQualitySelection } from "@/lib/quality-filter";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useObservations,
@@ -225,7 +226,7 @@ export function SpeciesDeepDive() {
         const ts = parseObsTimestamp(o.observed_on);
         if (isNaN(ts) || ts < filters.dateRange.start || ts > filters.dateRange.end) return false;
       }
-      if (filters.researchOnly && o.quality_grade !== "research") return false;
+      if (!matchesQualitySelection(o, filters.qualityGrades)) return false;
       if (filters.time.size > 0) {
         if (!o.observed_on || o.observed_on.length < 10) return false;
         const parts = o.observed_on.split("/");

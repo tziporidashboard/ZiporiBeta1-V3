@@ -28,6 +28,7 @@
  *   `UserAnalyticsTable`, `UserActivityChart`, `@/components/ui/input`.
  * Called by: the "People" route/tab in the app shell.
  */
+import { matchesQualitySelection } from "@/lib/quality-filter";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, ListFilter } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -117,7 +118,7 @@ export function PeopleDashboard() {
         if (Number.isNaN(ts) || ts < filters.dateRange.start || ts > filters.dateRange.end)
           return false;
       }
-      if (filters.researchOnly && o.quality_grade !== "research") return false;
+      if (!matchesQualitySelection(o, filters.qualityGrades)) return false;
       if (filters.time.size > 0) {
         if (!o.observed_on || o.observed_on.length < 10) return false;
         const parts = o.observed_on.split("/");

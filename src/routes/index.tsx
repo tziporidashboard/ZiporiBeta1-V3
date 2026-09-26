@@ -25,6 +25,7 @@
  *   `SpeciesDeepDive`, `PeopleDashboard` components.
  * Called by: the router, as the component for path `/`.
  */
+import { createDefaultQualitySelection } from "@/lib/quality-filter";
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { ObservationsProvider, useObservations } from "@/lib/observations-store";
@@ -197,7 +198,7 @@ function ResetFiltersButton() {
       ] as const),
       groups: groupsInData,
       localCommunitySubgroups: new Set(["yizrael", "zevulun", "student", "mechnistim"]),
-      researchOnly: false,
+      qualityGrades: createDefaultQualitySelection(),
       areas: new Set(SURVEY_AREA_KEYS),
       speciesTypes: new Set(["invasive", "rare", "other_species"]),
       monitoringAreas: new Set(

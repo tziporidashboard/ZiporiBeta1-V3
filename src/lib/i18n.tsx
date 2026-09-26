@@ -49,6 +49,7 @@ const dict: Dict = {
   tg_arthropods: { he: "פרוקי רגליים", en: "Arthropods" },
   tg_plants: { he: "צמחים", en: "Plants" },
   tg_other: { he: "שאר המינים", en: "Other Species" },
+  needsId: { he: "דורש זיהוי", en: "Needs ID" },
   researchOnly: { he: "דרגת מחקר", en: "Research Grade" },
   targetPop: { he: "מנטרים", en: "Target Population" },
   resetFilters: { he: "איפוס מסננים", en: "Reset Filters" },
