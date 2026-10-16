@@ -1,77 +1,26 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 import test from "node:test";
 import Papa from "papaparse";
 import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
+import {
+  evaluate,
+  find,
+  functionText,
+  loadPipeline,
+  loadProductionModule,
+  read,
+  root,
+  tree,
+  variable,
+} from "./helpers/observation-source.mjs";
 
-// Execute the production parser, row transformations and consumer callbacks
-// without starting React effects, a browser, or a server. No source data is written.
-// The historical comparison is pinned to the approved Casual-filter commit.
+// Compare dates with the approved pre-fix commit. The separately tested name
+// enrichment is allowed; every other field must remain unchanged.
 const baselineCommit = "d4b5a40bbb91629bdc3b7c95623007763524ac90";
-const root = fileURLToPath(new URL("../", import.meta.url));
 const storePath = "src/lib/observations-store.tsx";
-const require = createRequire(import.meta.url);
-const read = (file) => readFileSync(new URL(file, new URL("../", import.meta.url)), "utf8");
-const tree = (source) =>
-  ts.createSourceFile("source.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-
-function find(ast, predicate) {
-  const matches = [];
-  function visit(node) {
-    if (predicate(node)) matches.push(node);
-    ts.forEachChild(node, visit);
-  }
-  visit(ast);
-  assert.equal(matches.length, 1, "Expected one matching production declaration");
-  return matches[0];
-}
-
-function functionText(ast, name) {
-  return find(ast, (n) => ts.isFunctionDeclaration(n) && n.name?.text === name)
-    .getText(ast)
-    .replace(/^export\s+/, "");
-}
-
-function variable(ast, name) {
-  return find(ast, (n) => ts.isVariableDeclaration(n) && n.name.getText(ast) === name);
-}
-
-function evaluate(code, bindings = {}) {
-  const compiled = ts.transpileModule(code, {
-    compilerOptions: {
-      target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.CommonJS,
-      jsx: ts.JsxEmit.ReactJSX,
-    },
-  }).outputText;
-  return new Function("require", "exports", ...Object.keys(bindings), compiled)(
-    require,
-    {},
-    ...Object.values(bindings),
-  );
-}
-
-function loadPipeline(source) {
-  const ast = tree(source);
-  const constants = ["CATEGORY_MAP", "ODONATA_FAMILIES", "REA_SHAISH_NAME"]
-    .map((name) => `const ${variable(ast, name).getText(ast)};`)
-    .join("\n");
-  const functions = ["getSupergroup", "parseObservedOn", "parseObservedTime", "parseMerlinRow"]
-    .map((name) => functionText(ast, name))
-    .join("\n");
-  return evaluate(`${constants}\n${functions}
-    return { parseObservedOn, parseObservedTime,
-      load(observationsData, merlinData, userGroupMap) {
-        const inat = ${variable(ast, "tziporiObservations").initializer.getText(ast)};
-        const merlin = ${variable(ast, "merlinObservations").initializer.getText(ast)};
-        return [...inat, ...merlin];
-      }
-    };`);
-}
+const { getInaturalistCommonName } = loadProductionModule("src/lib/observation-enrichment.ts");
 
 function csv(file) {
   const parsed = Papa.parse(read(file), { header: true, skipEmptyLines: true });
@@ -132,11 +81,18 @@ test("all 12,674 source records survive; exactly 949 dates change and 11,725 sta
     assert.equal(row.observed_on, expected[index].date, row.composite_id);
     const { observed_on: oldDate, ...oldMetadata } = before[index];
     const { observed_on: newDate, ...newMetadata } = row;
-    assert.deepEqual(newMetadata, oldMetadata, row.composite_id);
+    const expectedMetadata =
+      row.source === "inaturalist"
+        ? {
+            ...oldMetadata,
+            common_name: getInaturalistCommonName(inat[index].id, oldMetadata.common_name),
+          }
+        : oldMetadata;
+    assert.deepEqual(newMetadata, expectedMetadata, row.composite_id);
     if (oldDate === expected[index].date) assert.equal(newDate, oldDate);
   });
   t.diagnostic(
-    "949 corrected; 11,725 unchanged; identifiers, order and all other metadata preserved.",
+    "949 corrected; 11,725 unchanged; identifiers and other metadata preserved except the approved name enrichment.",
   );
 });
 

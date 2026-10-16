@@ -42,6 +42,7 @@
  *   `useObservations()`.
  */
 import { createDefaultQualitySelection, type QualityGrade } from "@/lib/quality-filter";
+import { getInaturalistCommonName } from "./observation-enrichment";
 import {
   createContext,
   useContext,
@@ -578,7 +579,10 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
               quality_grade: (row.quality_grade || "").trim().toLowerCase(),
               iconic_taxon_name: (row.iconic_taxon_name || "").trim(),
               scientific_name: (row.scientific_name || "").trim(),
-              common_name: (row.common_name || "").trim() || undefined,
+              common_name: getInaturalistCommonName(
+                inatId,
+                (row.common_name || "").trim() || undefined,
+              ),
               taxon_order_name: (row.taxon_order_name || "").trim(),
               user_category: userCategory,
               user_subcategory: userSubcategory,
