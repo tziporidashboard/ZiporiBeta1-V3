@@ -65,7 +65,7 @@ import {
 export type { SurveyAreaKey };
 
 export type Observation = {
-  observed_on: string; // YYYY-MM-DD
+  observed_on: string; // DD/MM/YYYY (recorded calendar date, without timezone conversion)
   observed_time?: string;
   latitude: number;
   longitude: number;
@@ -196,62 +196,36 @@ export function translateMonth(monthNum: number, lang: "he" | "en" = "he"): stri
 }
 
 /**
- * Parse observation dates from either:
- * - Tzipori format: DD/MM/YYYY or DD/MM/YYYY HH:mm
- * - Merlin format: M/D/YYYY or M/D/YYYY H:mm
+ * Parse the explicit format of each active source:
+ * - iNaturalist: DD/MM/YYYY, optionally followed by a time.
+ * - MERLIN: YYYY-MM-DD, optionally followed by an ISO/space-separated time.
  * Normalizes to DD/MM/YYYY (the internal format used by the rest of the app).
- * Returns empty string if unparseable.
+ * Keeps the recorded calendar date without timezone conversion. Clock times
+ * are extracted separately by parseObservedTime. Invalid dates return "".
  */
-function parseObservedOn(value: string): string {
+function parseObservedOn(value: string, source: "inaturalist" | "merlin"): string {
   const raw = (value || "").trim();
   if (!raw) return "";
 
-  // Strip time portion if present
-  const datePart = raw.split(/\s+/)[0];
-  const isoMatch = datePart.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (isoMatch) {
-    const year = parseInt(isoMatch[1], 10);
-    const month = parseInt(isoMatch[2], 10);
-    const day = parseInt(isoMatch[3], 10);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return "";
-    return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+  const datePart = raw.split(/[T\s]/)[0];
+  const match =
+    source === "inaturalist"
+      ? datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+      : datePart.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!match) return "";
+
+  const year = Number(match[source === "inaturalist" ? 3 : 1]);
+  const month = Number(match[2]);
+  const day = Number(match[source === "inaturalist" ? 1 : 3]);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (year < 1 || month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) {
+    return "";
   }
-
-  const parts = datePart.split("/");
-  if (parts.length !== 3) return "";
-
-  const first = parseInt(parts[0], 10);
-  const second = parseInt(parts[1], 10);
-  const year = parseInt(parts[2], 10);
-  if (isNaN(first) || isNaN(second) || isNaN(year)) return "";
-
-  let day: number;
-  let month: number;
-
-  if (second > 12) {
-    // Second component cannot be a month: must be Merlin M/D/YYYY
-    month = first;
-    day = second;
-  } else if (first > 12) {
-    // First component cannot be a month: must be Tzipori DD/MM/YYYY
-    day = first;
-    month = second;
-  } else if (parts[1].length === 2 && parts[1].startsWith("0")) {
-    // Zero-padded month in second position: Tzipori DD/MM/YYYY
-    day = first;
-    month = second;
-  } else {
-    // Both components could be month/day. Merlin does not zero-pad months,
-    // so a non-padded second part is most likely Merlin's M/D/YYYY.
-    month = first;
-    day = second;
-  }
-
-  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
 
   const d = String(day).padStart(2, "0");
   const m = String(month).padStart(2, "0");
-  return `${d}/${m}/${year}`;
+  return `${d}/${m}/${String(year).padStart(4, "0")}`;
 }
 
 /** Extract the recorded clock time without applying timezone conversions. */
@@ -266,7 +240,7 @@ function parseObservedTime(value: string): string | undefined {
 function parseMerlinRow(row: Record<string, string>, index: number): Observation | null {
   const lat = parseFloat((row.decimalLatitudeStart || "").trim());
   const lon = parseFloat((row.decimalLongitudeStart || "").trim());
-  const observedOn = parseObservedOn(row.timeStamp || "");
+  const observedOn = parseObservedOn(row.timeStamp || "", "merlin");
 
   if (!observedOn || isNaN(lat) || isNaN(lon)) return null;
 
@@ -584,7 +558,7 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
           .map((row) => {
             const lat = parseFloat((row.latitude || "").trim());
             const lon = parseFloat((row.longitude || "").trim());
-            const observedOn = parseObservedOn(row.observed_on || "");
+            const observedOn = parseObservedOn(row.observed_on || "", "inaturalist");
 
             if (!observedOn || isNaN(lat) || isNaN(lon)) return null;
 
