@@ -3,6 +3,7 @@
 export const QUALITY_OPTIONS = [
   { value: "research", labelKey: "researchOnly" },
   { value: "needs_id", labelKey: "needsId" },
+  { value: "casual", labelKey: "casual" },
 ] as const;
 
 export type QualityGrade = (typeof QUALITY_OPTIONS)[number]["value"];

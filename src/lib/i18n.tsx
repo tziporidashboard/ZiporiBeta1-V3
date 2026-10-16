@@ -52,6 +52,7 @@ const dict: Dict = {
   tg_other: { he: "שאר המינים", en: "Other Species" },
   needsId: { he: "דורש זיהוי", en: "Needs ID" },
   researchOnly: { he: "דרגת מחקר", en: "Research Grade" },
+  casual: { he: "בסיסי", en: "Casual" },
   targetPop: { he: "מנטרים", en: "Target Population" },
   resetFilters: { he: "איפוס מסננים", en: "Reset Filters" },
   map: { he: "מפת תצפיות", en: "Observation Map" },

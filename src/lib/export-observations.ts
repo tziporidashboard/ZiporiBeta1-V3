@@ -55,7 +55,7 @@ export function exportObservations(
   const qualityLabels: Record<string, string> = {
     research: getLabel("researchOnly", lang),
     needs_id: getLabel("needsId", lang),
-    casual: lang === "en" ? "Casual" : "מזדמן",
+    casual: getLabel("casual", lang),
   };
   const areaNames = new Map(
     monitoringAreas?.features.map((feature) => [

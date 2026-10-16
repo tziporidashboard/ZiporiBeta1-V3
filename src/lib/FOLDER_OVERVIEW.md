@@ -49,7 +49,7 @@ lat/lng are silently dropped.
 | `observed_on` | yes | `Observation.observed_on` (normalized to `DD/MM/YYYY`). |
 | `latitude`, `longitude` | yes | `Observation.latitude/longitude` → map bubbles, area/polygon filtering. |
 | `user_login` | yes | `Observation.user_login` → joined against `user_groups.csv` for `user_category`/`user_subcategory`. |
-| `quality_grade` | no | `Observation.quality_grade` → multi-select Quality filter (`research`, `needs_id`), using `quality-filter.ts`. Both selected by default; an empty selection matches nothing. |
+| `quality_grade` | no | `Observation.quality_grade` → multi-select Quality filter (`research`, `needs_id`, `casual`), using `quality-filter.ts`. All three selected by default and on reset; an empty selection matches nothing. Missing or unknown grades are excluded, not reclassified. |
 | `iconic_taxon_name` | no | `Observation.iconic_taxon_name` → fallback taxa-group classification. |
 | `scientific_name` | no | `Observation.scientific_name` → species lookups (`species-map.ts`), invasive/rare classification (`species-registry.ts`). |
 | `common_name` | no | `Observation.common_name` (optional fallback display name). |
