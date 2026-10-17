@@ -342,6 +342,7 @@ test("map bubble records and rendered sidebar dates use corrected dates without 
   const ast = tree(read("src/components/observation-map.tsx"));
   const group = evaluate(`return (data) => (${memoText(ast, "bubbles")})();`, {
     getTaxaGroup: () => "other",
+    ...loadProductionModule("src/lib/observation-taxonomy-overrides.ts"),
   });
   const bubbles = group(after);
   assert.equal(

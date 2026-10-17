@@ -475,7 +475,10 @@ test("month/date-range filters, chart counts and seasonal classifications use ra
 
 test("map bubbles and details include every new ID; historical monitoring memberships are unchanged", () => {
   const ast = tree(read("src/components/observation-map.tsx"));
-  const bubbles = evaluate(`return (data) => (${memo(ast, "bubbles")})();`, store)(observations);
+  const bubbles = evaluate(`return (data) => (${memo(ast, "bubbles")})();`, {
+    ...store,
+    ...loadProductionModule("src/lib/observation-taxonomy-overrides.ts"),
+  })(observations);
   assert.equal(
     bubbles.reduce((total, b) => total + b.count, 0),
     13653,

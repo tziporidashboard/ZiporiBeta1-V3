@@ -45,6 +45,7 @@
  */
 import { createDefaultQualitySelection, type QualityGrade } from "@/lib/quality-filter";
 import { getInaturalistCommonName } from "./observation-enrichment";
+import { getObservationTaxonomyOverride } from "./observation-taxonomy-overrides";
 import {
   appendInaturalistAdditions,
   type ObservationSourceMetadata,
@@ -335,11 +336,14 @@ const TAB_LABEL_TO_GROUP: Record<string, TaxaGroupKey> = {
 };
 
 /** Map an observation to one of our high-level dashboard groups.
+ *  0. Apply a reviewed, ID-and-source-scoped correction for verified additions.
  *  1. Look up the scientific_name via the taxonomy engine (unified dictionary).
  *  2. If not found, fall back to iconic_taxon_name (Aves/Mammalia → birds/mammals).
  *  3. Default → "other".
  */
 export function getTaxaGroup(o: Observation): TaxaGroupKey {
+  const correction = getObservationTaxonomyOverride(o);
+  if (correction !== null) return correction;
   const sci = o.scientific_name;
 
   // 1. Taxonomy engine lookup (uses iconic_taxon_name + common_name for fallbacks)

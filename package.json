@@ -13,6 +13,7 @@
     "test:enrichment": "node --test tests/observation-enrichment.test.mjs",
     "test:people-groups": "node --test tests/people-groups.test.mjs",
     "test:import": "node --test tests/observation-import.test.mjs",
+    "test:taxonomy": "node --test tests/observation-taxonomy.test.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {

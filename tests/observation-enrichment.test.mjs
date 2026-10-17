@@ -181,7 +181,10 @@ test("all eight quality selections retain exactly the same records, including Ca
 
 test("map groups, observation-detail index and monitoring memberships retain records and enriched names", () => {
   const ast = tree(read("src/components/observation-map.tsx"));
-  const group = evaluate(`return (data) => (${memoText(ast, "bubbles")})();`, store);
+  const group = evaluate(`return (data) => (${memoText(ast, "bubbles")})();`, {
+    ...store,
+    ...loadProductionModule("src/lib/observation-taxonomy-overrides.ts"),
+  });
   assert.deepEqual(group(after), group(before));
   const buildDetails = evaluate(
     `return (allObservations) => (${memoText(ast, "observationsMap")})();`,

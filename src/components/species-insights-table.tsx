@@ -8,9 +8,8 @@
  *     `@/components/species-deep-dive.tsx` for the chart's default
  *     highlighted-species set) groups observations by scientific name
  *     (restricted to named entries in `@/lib/species-map`), computes
- *     per-species stats, then orders results as: selected
- *     `prioritySpecies` first, then the rest of `priorityCategory`, then
- *     everything else — capped to the top 5.
+ *     per-species stats within the active `priorityCategory`, then orders
+ *     selected `prioritySpecies` first and the rest by count — capped to 5.
  *   - `getSeasonalStatus` — buckets a species' observations by month and
  *     labels the dominant season (or "יציב שנתית" if no season dominates).
  *   - `TrendIcon` — renders an up/down/stable arrow (RTL-aware) comparing
@@ -59,6 +58,9 @@ function getSeasonalStatus(records: Observation[]): string {
 export function getTopSpecies(data: Observation[], prioritySpecies: Set<string>, priorityCategory: TaxaGroupKey | null): SpeciesInsight[] {
   const bySpecies = new Map<string, Observation[]>();
   for (const observation of data) {
+    // Filter each record before grouping: a shared name does not imply a shared
+    // category when historical classifications are intentionally preserved.
+    if (priorityCategory && getTaxaGroup(observation) !== priorityCategory) continue;
     if (!observation.scientific_name || !CHIP_SPECIES_NAMES.has(observation.scientific_name)) continue;
     const records = bySpecies.get(observation.scientific_name) ?? [];
     records.push(observation);
@@ -92,11 +94,10 @@ export function getTopSpecies(data: Observation[], prioritySpecies: Set<string>,
 
   const byCount = (a: SpeciesInsight, b: SpeciesInsight) => b.observations - a.observations || a.hebrewName.localeCompare(b.hebrewName, "he");
   const selected = insights.filter((insight) => prioritySpecies.has(insight.scientificName)).sort(byCount);
-  const category = priorityCategory
-    ? insights.filter((insight) => !prioritySpecies.has(insight.scientificName) && getTaxaGroup(bySpecies.get(insight.scientificName)![0]) === priorityCategory).sort(byCount)
-    : [];
-  const remaining = insights.filter((insight) => !prioritySpecies.has(insight.scientificName) && !category.includes(insight)).sort(byCount);
-  return [...selected, ...category, ...remaining].slice(0, 5);
+  const remaining = insights
+    .filter((insight) => !prioritySpecies.has(insight.scientificName))
+    .sort(byCount);
+  return [...selected, ...remaining].slice(0, 5);
 }
 
 function TrendIcon({ trend, rtl, title }: { trend: SpeciesInsight["trend"]; rtl: boolean; title: string }) {

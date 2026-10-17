@@ -8,6 +8,7 @@
  *   - Aggregates raw `data` (already filtered by the caller) into
  *     `bubbles`: one entry per unique
  *     `scientific_name|observed_on|rounded-lat|rounded-lng` combination,
+ *     with reviewed taxonomy corrections kept separate from unreviewed records,
  *     merging duplicate points and tracking their `composite_id`s.
  *   - Uses a single shared Leaflet canvas `renderer` for all vector
  *     layers so overlapping polygons/circles/geojson hit-test correctly
@@ -40,6 +41,7 @@ import {
 import L from "leaflet";
 import type { Observation } from "@/lib/observations-store";
 import { useObservations, getTaxaGroup, translateSpeciesName } from "@/lib/observations-store";
+import { getObservationTaxonomyOverride } from "@/lib/observation-taxonomy-overrides";
 import { useI18n } from "@/lib/i18n";
 import { SURVEY_POLYGONS, SURVEY_AREA_KEYS, translateArea, type SurveyAreaKey } from "@/lib/survey-polygons";
 import { translateMonitoringAreaName } from "@/lib/monitoring-areas";
@@ -158,13 +160,14 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
     ? [data[0].latitude, data[0].longitude]
     : [31.5, 34.9]; // default Israel
 
-  // Data aggregation: group observations by species, date, and rounded coordinates
+  // Keep corrected records separate without regrouping any unreviewed records.
   const bubbles = useMemo(() => {
     const groups = new Map<string, Bubble>();
 
     for (const obs of data) {
-      const key = `${obs.scientific_name}|${obs.observed_on}|${obs.latitude.toFixed(3)}|${obs.longitude.toFixed(3)}`;
       const category = getTaxaGroup(obs) || "other";
+      const correction = getObservationTaxonomyOverride(obs);
+      const key = `${obs.scientific_name}|${obs.observed_on}|${obs.latitude.toFixed(3)}|${obs.longitude.toFixed(3)}${correction === null ? "" : `|${correction}`}`;
 
       if (groups.has(key)) {
         const existing = groups.get(key)!;
