@@ -75,7 +75,7 @@ const GROUPS: GroupDef[] = [
   { key: "zevulun", label: "זבולון", match: (o) => o.user_subcategory === "zevulun" },
   { key: "yizrael", label: "יזרעאל", match: (o) => o.user_subcategory === "yizrael" },
   { key: "mechnistim", label: "מכניסטים", match: (o) => o.user_subcategory === "mechnistim" },
-  { key: "student", label: "תלמידים", match: (o) => o.user_category === "student" },
+  { key: "student", label: "תלמידים", match: (o) => o.user_subcategory === "student" },
   {
     key: "public",
     label: "קהילות מקוונות",

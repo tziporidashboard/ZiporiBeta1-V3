@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "test:dates": "node --test tests/observation-dates.test.mjs",
     "test:enrichment": "node --test tests/observation-enrichment.test.mjs",
+    "test:people-groups": "node --test tests/people-groups.test.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {
