@@ -29,12 +29,21 @@
  *   `TaxaFilterBar`, `ObservationMap`, `MetricsTable`, `TimeSeriesChart`.
  * Called by: `src/routes/index.tsx` (the `/` route).
  */
+import { matchesQualitySelection } from "@/lib/quality-filter";
 import { useMemo } from "react";
 import { useObservations, getTaxaGroup, getSpeciesClassification } from "@/lib/observations-store";
 import { getTaxonDetails } from "@/lib/taxonomy-engine";
 import { getObservationArea, type SurveyAreaKey } from "@/lib/survey-polygons";
 import { observationMatchesSelectedAreas } from "@/lib/monitoring-areas";
 import { useI18n } from "@/lib/i18n";
+import { exportObservations } from "@/lib/export-observations";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TaxaFilterBar } from "@/components/taxa-filter-bar";
 import { ObservationMap } from "@/components/observation-map";
 import { MetricsTable } from "@/components/metrics-table";
@@ -60,8 +69,8 @@ function areaMatches(selectedAreas: Set<SurveyAreaKey>, area: SurveyAreaKey | nu
 }
 
 export function Dashboard() {
-  const { t, lang } = useI18n();
-  const { observations, filters, observationMonitoringAreaIndex } = useObservations();
+  const { t, lang, dir } = useI18n();
+  const { observations, filters, monitoringAreas, observationMonitoringAreaIndex } = useObservations();
 
   const filtered = useMemo(() => {
     return observations.filter((o) => {
@@ -75,12 +84,8 @@ export function Dashboard() {
         }
       }
 
-      // Research grade filter
-      if (filters.researchOnly) {
-        if (!o.quality_grade || o.quality_grade !== "research") {
-          return false;
-        }
-      }
+      // Quality selection filter
+      if (!matchesQualitySelection(o, filters.qualityGrades)) return false;
 
       // Time filter (year/month) - DD/MM/YYYY format
       if (filters.time.size > 0) {
@@ -171,12 +176,8 @@ export function Dashboard() {
         }
       }
 
-      // Research grade filter
-      if (filters.researchOnly) {
-        if (!o.quality_grade || o.quality_grade !== "research") {
-          return false;
-        }
-      }
+      // Quality selection filter
+      if (!matchesQualitySelection(o, filters.qualityGrades)) return false;
 
       // Time filter (year/month) - DD/MM/YYYY format
       if (filters.time.size > 0) {
@@ -246,12 +247,8 @@ export function Dashboard() {
         }
       }
 
-      // Research grade filter
-      if (filters.researchOnly) {
-        if (!o.quality_grade || o.quality_grade !== "research") {
-          return false;
-        }
-      }
+      // Quality selection filter
+      if (!matchesQualitySelection(o, filters.qualityGrades)) return false;
 
       // Time filter (year/month) - DD/MM/YYYY format
       if (filters.time.size > 0) {
@@ -344,7 +341,32 @@ export function Dashboard() {
         <div className="flex justify-center max-w-full overflow-x-auto scrollbar-hide">
           <TaxaFilterBar />
         </div>
-        <div />
+        <div className="flex justify-end">
+          <DropdownMenu dir={dir}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={observations.length === 0}>
+                {t("exportCsv")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="z-[1100]">
+              <DropdownMenuItem
+                disabled={filtered.length === 0}
+                onSelect={() =>
+                  exportObservations(filtered, monitoringAreas, observationMonitoringAreaIndex, lang)
+                }
+              >
+                {t("exportFilteredObservations")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() =>
+                  exportObservations(observations, monitoringAreas, observationMonitoringAreaIndex, lang)
+                }
+              >
+                {t("exportAllObservations")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Map Container */}

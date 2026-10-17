@@ -26,7 +26,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer,
 } from "recharts";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, getLabel } from "@/lib/i18n";
 import { translateMonth, getTaxaGroup } from "@/lib/observations-store";
 import type { Observation, TaxaGroupKey } from "@/lib/observations-store";
 import { SPECIES_MAP } from "@/lib/species-dictionary";
@@ -38,16 +38,6 @@ const SPECIES_PALETTE = [
 ];
 
 const BACKGROUND_COLOR = "#737373";
-
-const HEBREW_CATEGORY_LABELS: Record<TaxaGroupKey, string> = {
-  mammals: "יונקים",
-  birds: "עופות",
-  butterflies: "פרפרים",
-  dragonflies: "שפיראים",
-  arthropods: "פרוקי רגליים",
-  plants: "צמחים",
-  other: "שאר המינים",
-};
 
 interface Props {
   /** All observations (unfiltered by deep dive) */
@@ -133,8 +123,8 @@ export function DeepDiveTimeSeriesChart({ allObservations, category, selectedSpe
         };
       });
 
-      const focusLabel = category ? HEBREW_CATEGORY_LABELS[category] : "כל הקטגוריות";
-      const bgLabel = "שאר הקטגוריות";
+      const focusLabel = getLabel(category ? `tg_${category}` : "allCategories", lang);
+      const bgLabel = getLabel("otherCategories", lang);
 
       return {
         chartData,

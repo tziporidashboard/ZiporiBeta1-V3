@@ -40,7 +40,7 @@ const USER_PALETTE = [
   "#4f46e5",
 ];
 
-function parseSortKey(dateStr: string): { sortKey: number; label: string } | null {
+function parseSortKey(dateStr: string, lang: "he" | "en"): { sortKey: number; label: string } | null {
   if (!dateStr || dateStr.length < 10) return null;
   const parts = dateStr.split("/");
   if (parts.length !== 3) return null;
@@ -49,7 +49,7 @@ function parseSortKey(dateStr: string): { sortKey: number; label: string } | nul
   if (Number.isNaN(year) || Number.isNaN(month) || month < 1 || month > 12) return null;
   return {
     sortKey: year * 100 + month,
-    label: `${translateMonth(month, "he")}-${String(year).slice(-2)}`,
+    label: `${translateMonth(month, lang)}-${String(year).slice(-2)}`,
   };
 }
 
@@ -66,7 +66,7 @@ export function UserActivityChart({ observations, users }: Props) {
 
     for (const o of observations) {
       if (!users.includes(o.user_login)) continue;
-      const parsed = parseSortKey(o.observed_on);
+      const parsed = parseSortKey(o.observed_on, lang);
       if (!parsed) continue;
       const { sortKey, label } = parsed;
 
@@ -93,7 +93,7 @@ export function UserActivityChart({ observations, users }: Props) {
     });
 
     return { chartData, seriesKeys: users, seriesColors };
-  }, [observations, users]);
+  }, [observations, users, lang]);
 
   if (chartData.length === 0 || users.length === 0) {
     return (

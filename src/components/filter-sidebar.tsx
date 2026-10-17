@@ -25,6 +25,7 @@
  * Called by: `@/components/dashboard.tsx` (or the route that toggles the
  *   filter panel open/closed via `onClose`).
  */
+import { QUALITY_OPTIONS } from "@/lib/quality-filter";
 import { useMemo, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -36,6 +37,7 @@ import {
   translateMonth,
 } from "@/lib/observations-store";
 import { SURVEY_AREA_KEYS, translateArea } from "@/lib/survey-polygons";
+import { translateMonitoringAreaName } from "@/lib/monitoring-areas";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -86,6 +88,7 @@ function Check({
 export function FilterSidebar({ onClose }: { onClose: () => void }) {
   const { t, lang } = useI18n();
   const [localCommunitiesOpen, setLocalCommunitiesOpen] = useState(false);
+  const [restoredAreasOpen, setRestoredAreasOpen] = useState(false);
   const { observations, filters, setFilters, toggleSpeciesType, datasetBounds, monitoringAreas } =
     useObservations();
 
@@ -284,6 +287,36 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
     });
   };
 
+  const restoredSurveyAreaKeys = SURVEY_AREA_KEYS.filter((key) => key !== "other_areas");
+  const restoredMonitoringAreaIds =
+    monitoringAreas?.features.map((feature) => feature.properties.id) ?? [];
+
+  const toggleAllRestoredAreas = (checked: boolean) => {
+    setFilters((prev) => {
+      const areas = new Set(prev.areas);
+      const selectedMonitoringAreas = new Set(prev.monitoringAreas);
+
+      for (const key of restoredSurveyAreaKeys) {
+        if (checked) areas.add(key);
+        else areas.delete(key);
+      }
+      for (const id of restoredMonitoringAreaIds) {
+        if (checked) selectedMonitoringAreas.add(id);
+        else selectedMonitoringAreas.delete(id);
+      }
+
+      return { ...prev, areas, monitoringAreas: selectedMonitoringAreas };
+    });
+  };
+
+  const allRestoredAreasSelected =
+    restoredSurveyAreaKeys.every((key) => filters.areas.has(key)) &&
+    restoredMonitoringAreaIds.every((id) => filters.monitoringAreas.has(id));
+
+  const someRestoredAreasSelected =
+    restoredSurveyAreaKeys.some((key) => filters.areas.has(key)) ||
+    restoredMonitoringAreaIds.some((id) => filters.monitoringAreas.has(id));
+
   const monthName = (m: string) => {
     const monthNum = parseInt(m, 10);
 
@@ -311,7 +344,7 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="rounded-md border border-primary/15 bg-muted/60 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
-        💡 טיפ: ניתן לסגור את חלונית המסננים ולפתוח אותה שוב בעת הצורך באמצעות התפריט.
+        💡 {t("filterTip")}
       </div>
 
       <Section title={t("years")}>
@@ -333,11 +366,19 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
       </Section>
 
       <Section title={t("quality")}>
-        <Check
-          checked={filters.researchOnly}
-          onChange={(b) => setFilters((p) => ({ ...p, researchOnly: b }))}
-          label={t("researchOnly")}
-        />
+        {QUALITY_OPTIONS.map(({ value, labelKey }) => (
+          <Check
+            key={value}
+            checked={filters.qualityGrades.has(value)}
+            onChange={(checked) => setFilters((previous) => {
+              const qualityGrades = new Set(previous.qualityGrades);
+              if (checked) qualityGrades.add(value);
+              else qualityGrades.delete(value);
+              return { ...previous, qualityGrades };
+            })}
+            label={t(labelKey)}
+          />
+        ))}
       </Section>
 
       <Section title={t("speciesType")}>
@@ -416,29 +457,54 @@ export function FilterSidebar({ onClose }: { onClose: () => void }) {
       </Section>
 
       <Section title={t("monitoringAreas")}>
-        <p className="mb-2 px-1 text-sm font-medium text-gray-500">בשיקום</p>
-        {SURVEY_AREA_KEYS.filter((key) => key !== "other_areas").map((key) => (
-          <Check
-            key={key}
-            checked={filters.areas.has(key)}
-            onChange={() => toggleArea(key)}
-            label={translateArea(key, lang)}
-          />
-        ))}
-        {!monitoringAreas && <p className="px-1 text-xs text-muted-foreground">—</p>}
-        {monitoringAreas?.features.map((feature) => (
-          <Check
-            key={feature.properties.id}
-            checked={filters.monitoringAreas.has(feature.properties.id)}
-            onChange={() => toggleMonitoringArea(feature.properties.id)}
-            label={feature.properties.name}
-          />
-        ))}
-        <hr className="my-2 border-gray-200" />
+        <div>
+          <div className="flex items-center gap-1">
+            <Check
+              checked={allRestoredAreasSelected}
+              indeterminate={someRestoredAreasSelected && !allRestoredAreasSelected}
+              onChange={(checked) => toggleAllRestoredAreas(checked)}
+              label={t("restoredArea")}
+            />
+
+            <button
+              type="button"
+              onClick={() => setRestoredAreasOpen((prev) => !prev)}
+              aria-label={t("restoredArea")}
+              aria-expanded={restoredAreasOpen}
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md hover:bg-secondary"
+            >
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${restoredAreasOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+          </div>
+
+          {restoredAreasOpen && (
+            <div className="space-y-1 ps-6">
+              {restoredSurveyAreaKeys.map((key) => (
+                <Check
+                  key={key}
+                  checked={filters.areas.has(key)}
+                  onChange={() => toggleArea(key)}
+                  label={translateArea(key, lang)}
+                />
+              ))}
+              {!monitoringAreas && <p className="px-1 text-xs text-muted-foreground">—</p>}
+              {monitoringAreas?.features.map((feature) => (
+                <Check
+                  key={feature.properties.id}
+                  checked={filters.monitoringAreas.has(feature.properties.id)}
+                  onChange={() => toggleMonitoringArea(feature.properties.id)}
+                  label={translateMonitoringAreaName(feature.properties, lang)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
         <Check
           checked={filters.areas.has("other_areas")}
           onChange={() => toggleArea("other_areas")}
-          label={translateArea("other_areas", lang)}
+          label={t("nonRestoredArea")}
         />
       </Section>
     </aside>

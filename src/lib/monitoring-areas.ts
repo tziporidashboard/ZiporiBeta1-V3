@@ -27,6 +27,7 @@
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { Observation } from "./observations-store";
+import type { Lang } from "./i18n";
 import { getObservationArea, type SurveyAreaKey } from "./survey-polygons";
 
 export type MonitoringAreaProperties = {
@@ -34,6 +35,21 @@ export type MonitoringAreaProperties = {
   name: string;
   color: string;
 };
+
+const MONITORING_AREA_ENGLISH_NAMES: Readonly<Record<string, string>> = {
+  "monitoring-area-1": "Canal – Einot Zipori",
+  "monitoring-area-2": "Downstream – Einot Zipori",
+  "monitoring-area-3": "Wet Meadow – Einot Zipori",
+  "monitoring-area-4": "Nahal Zipori – Confluence Control Site",
+  "monitoring-area-5": "Wet Meadow – Stream Confluence",
+  "monitoring-area-6": "Bird Observation Point – Stream Confluence",
+  "monitoring-area-7": "Downstream from the Stream Confluence",
+  "monitoring-area-8": "Yiftachel Stream – Confluence Control Site",
+};
+
+export function translateMonitoringAreaName(area: MonitoringAreaProperties, lang: Lang): string {
+  return lang === "en" ? (MONITORING_AREA_ENGLISH_NAMES[area.id] ?? area.name) : area.name;
+}
 
 export type MonitoringAreaFeature = Feature<Polygon | MultiPolygon, MonitoringAreaProperties>;
 export type MonitoringAreasGeoJson = FeatureCollection<

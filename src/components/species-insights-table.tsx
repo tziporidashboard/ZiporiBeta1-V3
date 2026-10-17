@@ -8,9 +8,8 @@
  *     `@/components/species-deep-dive.tsx` for the chart's default
  *     highlighted-species set) groups observations by scientific name
  *     (restricted to named entries in `@/lib/species-map`), computes
- *     per-species stats, then orders results as: selected
- *     `prioritySpecies` first, then the rest of `priorityCategory`, then
- *     everything else — capped to the top 5.
+ *     per-species stats within the active `priorityCategory`, then orders
+ *     selected `prioritySpecies` first and the rest by count — capped to 5.
  *   - `getSeasonalStatus` — buckets a species' observations by month and
  *     labels the dominant season (or "יציב שנתית" if no season dominates).
  *   - `TrendIcon` — renders an up/down/stable arrow (RTL-aware) comparing
@@ -24,7 +23,7 @@ import { useMemo } from "react";
 import { getTaxaGroup, type Observation, type TaxaGroupKey } from "@/lib/observations-store";
 import { SPECIES_MAP } from "@/lib/species-dictionary";
 import { speciesMap } from "@/lib/species-map";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, translateSeasonalStatus } from "@/lib/i18n";
 import { ArrowDownLeft, ArrowDownRight, ArrowUpLeft, ArrowUpRight, Minus } from "lucide-react";
 
 const CHIP_SPECIES_NAMES = new Set(
@@ -59,6 +58,9 @@ function getSeasonalStatus(records: Observation[]): string {
 export function getTopSpecies(data: Observation[], prioritySpecies: Set<string>, priorityCategory: TaxaGroupKey | null): SpeciesInsight[] {
   const bySpecies = new Map<string, Observation[]>();
   for (const observation of data) {
+    // Filter each record before grouping: a shared name does not imply a shared
+    // category when historical classifications are intentionally preserved.
+    if (priorityCategory && getTaxaGroup(observation) !== priorityCategory) continue;
     if (!observation.scientific_name || !CHIP_SPECIES_NAMES.has(observation.scientific_name)) continue;
     const records = bySpecies.get(observation.scientific_name) ?? [];
     records.push(observation);
@@ -92,11 +94,10 @@ export function getTopSpecies(data: Observation[], prioritySpecies: Set<string>,
 
   const byCount = (a: SpeciesInsight, b: SpeciesInsight) => b.observations - a.observations || a.hebrewName.localeCompare(b.hebrewName, "he");
   const selected = insights.filter((insight) => prioritySpecies.has(insight.scientificName)).sort(byCount);
-  const category = priorityCategory
-    ? insights.filter((insight) => !prioritySpecies.has(insight.scientificName) && getTaxaGroup(bySpecies.get(insight.scientificName)![0]) === priorityCategory).sort(byCount)
-    : [];
-  const remaining = insights.filter((insight) => !prioritySpecies.has(insight.scientificName) && !category.includes(insight)).sort(byCount);
-  return [...selected, ...category, ...remaining].slice(0, 5);
+  const remaining = insights
+    .filter((insight) => !prioritySpecies.has(insight.scientificName))
+    .sort(byCount);
+  return [...selected, ...remaining].slice(0, 5);
 }
 
 function TrendIcon({ trend, rtl, title }: { trend: SpeciesInsight["trend"]; rtl: boolean; title: string }) {
@@ -117,7 +118,7 @@ export function SpeciesInsightsTable({
   prioritySpecies: Set<string>;
   priorityCategory: TaxaGroupKey | null;
 }) {
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
   const rows = useMemo(
     () => getTopSpecies(data, prioritySpecies, priorityCategory),
     [data, prioritySpecies, priorityCategory]
@@ -128,11 +129,11 @@ export function SpeciesInsightsTable({
       <table className="h-full w-full table-fixed text-xs">
         <thead className="h-8">
           <tr className="border-b bg-secondary/60 text-[10px] font-semibold text-muted-foreground">
-            <th className="w-[30%] px-3 py-1 text-start">שם המין</th>
-            <th className="w-[15%] px-2 py-1 text-center">מספר תצפיות</th>
-            <th className="w-[20%] px-2 py-1 text-center">מגמה שנתית</th>
-            <th className="w-[17%] px-2 py-1 text-center">דרגת מחקר</th>
-            <th className="w-[18%] px-2 py-1 text-center">עונה פעילה</th>
+            <th className="w-[30%] px-3 py-1 text-start">{t("speciesName")}</th>
+            <th className="w-[15%] px-2 py-1 text-center">{t("observationCount")}</th>
+            <th className="w-[20%] px-2 py-1 text-center">{t("annualTrend")}</th>
+            <th className="w-[17%] px-2 py-1 text-center">{t("researchOnly")}</th>
+            <th className="w-[18%] px-2 py-1 text-center">{t("seasonalStatus")}</th>
           </tr>
         </thead>
         <tbody className="h-[calc(100%-2rem)]">
@@ -142,7 +143,7 @@ export function SpeciesInsightsTable({
               <td className="px-2 py-1 text-center align-middle tabular-nums">{row.observations.toLocaleString()}</td>
               <td className="px-2 py-1 text-center align-middle"><span className="inline-flex items-center justify-center"><TrendIcon trend={row.trend} rtl={lang === "he"} title={row.annualBreakdown} /></span></td>
               <td className="px-2 py-1 text-center align-middle tabular-nums">{row.researchPct.toFixed(1)}%</td>
-              <td className="px-2 py-1 text-center align-middle">{row.seasonalStatus}</td>
+              <td className="px-2 py-1 text-center align-middle">{translateSeasonalStatus(row.seasonalStatus, lang)}</td>
             </tr>
           ))}
         </tbody>

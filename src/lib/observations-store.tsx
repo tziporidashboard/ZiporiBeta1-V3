@@ -17,6 +17,8 @@
  *   3. Fetches `/MERLIN all observations for Zohar.csv` — expert-recorded
  *      observations (parsed via `parseMerlinRow`), merged with the
  *      iNaturalist rows into one combined `observations` array.
+ *      Appends `/inaturalist-september-2026-additions.json` by original
+ *      iNaturalist ID, using observation-level Excel groups for new rows only.
  *   4. Fetches `/monitoring-areas.geojson` (via
  *      `@/lib/monitoring-areas.ts`) and builds a per-observation
  *      monitoring-area membership index.
@@ -26,7 +28,7 @@
  *
  * Filter state (`Filters` type) covers: `dateRange`, `time`
  *   (year -> selected months), `taxa`, `groups`, `areas`,
- *   `monitoringAreas`, `speciesTypes`, `researchOnly`.
+ *   `monitoringAreas`, `speciesTypes`, `qualityGrades`.
  *
  * Exports: `ObservationsProvider`, `useObservations()`, the `Observation`
  *   type, and taxa/species/group classification + translation helpers
@@ -41,6 +43,13 @@
  *   `ObservationsProvider`), and every component that calls
  *   `useObservations()`.
  */
+import { createDefaultQualitySelection, type QualityGrade } from "@/lib/quality-filter";
+import { getInaturalistCommonName } from "./observation-enrichment";
+import { getObservationTaxonomyOverride } from "./observation-taxonomy-overrides";
+import {
+  appendInaturalistAdditions,
+  type ObservationSourceMetadata,
+} from "./inaturalist-additions";
 import {
   createContext,
   useContext,
@@ -64,7 +73,8 @@ import {
 export type { SurveyAreaKey };
 
 export type Observation = {
-  observed_on: string; // YYYY-MM-DD
+  observed_on: string; // DD/MM/YYYY (recorded calendar date, without timezone conversion)
+  observed_time?: string;
   latitude: number;
   longitude: number;
   user_login: string;
@@ -79,6 +89,7 @@ export type Observation = {
   composite_id?: string;
   source?: "merlin" | "inaturalist";
   source_url?: string;
+  source_metadata?: ObservationSourceMetadata;
 };
 
 // Group name translations (Hebrew -> English for language toggle)
@@ -194,68 +205,51 @@ export function translateMonth(monthNum: number, lang: "he" | "en" = "he"): stri
 }
 
 /**
- * Parse observation dates from either:
- * - Tzipori format: DD/MM/YYYY or DD/MM/YYYY HH:mm
- * - Merlin format: M/D/YYYY or M/D/YYYY H:mm
+ * Parse the explicit format of each active source:
+ * - iNaturalist: DD/MM/YYYY, optionally followed by a time.
+ * - MERLIN: YYYY-MM-DD, optionally followed by an ISO/space-separated time.
  * Normalizes to DD/MM/YYYY (the internal format used by the rest of the app).
- * Returns empty string if unparseable.
+ * Keeps the recorded calendar date without timezone conversion. Clock times
+ * are extracted separately by parseObservedTime. Invalid dates return "".
  */
-function parseObservedOn(value: string): string {
+function parseObservedOn(value: string, source: "inaturalist" | "merlin"): string {
   const raw = (value || "").trim();
   if (!raw) return "";
 
-  // Strip time portion if present
-  const datePart = raw.split(/\s+/)[0];
-  const isoMatch = datePart.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (isoMatch) {
-    const year = parseInt(isoMatch[1], 10);
-    const month = parseInt(isoMatch[2], 10);
-    const day = parseInt(isoMatch[3], 10);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return "";
-    return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+  const datePart = raw.split(/[T\s]/)[0];
+  const match =
+    source === "inaturalist"
+      ? datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+      : datePart.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!match) return "";
+
+  const year = Number(match[source === "inaturalist" ? 3 : 1]);
+  const month = Number(match[2]);
+  const day = Number(match[source === "inaturalist" ? 1 : 3]);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (year < 1 || month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) {
+    return "";
   }
-
-  const parts = datePart.split("/");
-  if (parts.length !== 3) return "";
-
-  const first = parseInt(parts[0], 10);
-  const second = parseInt(parts[1], 10);
-  const year = parseInt(parts[2], 10);
-  if (isNaN(first) || isNaN(second) || isNaN(year)) return "";
-
-  let day: number;
-  let month: number;
-
-  if (second > 12) {
-    // Second component cannot be a month: must be Merlin M/D/YYYY
-    month = first;
-    day = second;
-  } else if (first > 12) {
-    // First component cannot be a month: must be Tzipori DD/MM/YYYY
-    day = first;
-    month = second;
-  } else if (parts[1].length === 2 && parts[1].startsWith("0")) {
-    // Zero-padded month in second position: Tzipori DD/MM/YYYY
-    day = first;
-    month = second;
-  } else {
-    // Both components could be month/day. Merlin does not zero-pad months,
-    // so a non-padded second part is most likely Merlin's M/D/YYYY.
-    month = first;
-    day = second;
-  }
-
-  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
 
   const d = String(day).padStart(2, "0");
   const m = String(month).padStart(2, "0");
-  return `${d}/${m}/${year}`;
+  return `${d}/${m}/${String(year).padStart(4, "0")}`;
+}
+
+/** Extract the recorded clock time without applying timezone conversions. */
+function parseObservedTime(value: string): string | undefined {
+  const match = value.match(/(?:^|[T\s])(\d{1,2}:\d{2}(?::\d{2})?)(?=$|[Z+\-\s])/);
+  if (!match) return undefined;
+  const [hour, minute, second = 0] = match[1].split(":").map(Number);
+  if (hour > 23 || minute > 59 || second > 59) return undefined;
+  return match[1];
 }
 
 function parseMerlinRow(row: Record<string, string>, index: number): Observation | null {
   const lat = parseFloat((row.decimalLatitudeStart || "").trim());
   const lon = parseFloat((row.decimalLongitudeStart || "").trim());
-  const observedOn = parseObservedOn(row.timeStamp || "");
+  const observedOn = parseObservedOn(row.timeStamp || "", "merlin");
 
   if (!observedOn || isNaN(lat) || isNaN(lon)) return null;
 
@@ -303,6 +297,7 @@ function parseMerlinRow(row: Record<string, string>, index: number): Observation
 
   return {
     observed_on: observedOn,
+    observed_time: parseObservedTime(row.timeStamp || ""),
     latitude: lat,
     longitude: lon,
     user_login: userLogin,
@@ -341,11 +336,14 @@ const TAB_LABEL_TO_GROUP: Record<string, TaxaGroupKey> = {
 };
 
 /** Map an observation to one of our high-level dashboard groups.
+ *  0. Apply a reviewed, ID-and-source-scoped correction for verified additions.
  *  1. Look up the scientific_name via the taxonomy engine (unified dictionary).
  *  2. If not found, fall back to iconic_taxon_name (Aves/Mammalia → birds/mammals).
  *  3. Default → "other".
  */
 export function getTaxaGroup(o: Observation): TaxaGroupKey {
+  const correction = getObservationTaxonomyOverride(o);
+  if (correction !== null) return correction;
   const sci = o.scientific_name;
 
   // 1. Taxonomy engine lookup (uses iconic_taxon_name + common_name for fallbacks)
@@ -384,7 +382,7 @@ export type Filters = {
   taxa: Set<TaxaGroupKey>;
   groups: Set<string>;
   localCommunitySubgroups: Set<string>;
-  researchOnly: boolean;
+  qualityGrades: Set<QualityGrade>;
   /** Empty set = no area filter (show all). Non-empty = only show observations inside selected areas. */
   areas: Set<SurveyAreaKey>;
   /** Empty set = no species type filter. Non-empty = only show observations matching selected species types. */
@@ -453,7 +451,7 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
     ]),
     groups: new Set(),
     localCommunitySubgroups: new Set(["yizrael", "zevulun", "student", "mechnistim"]),
-    researchOnly: false,
+    qualityGrades: createDefaultQualitySelection(),
     areas: new Set<SurveyAreaKey>(SURVEY_AREA_KEYS),
     speciesTypes: new Set(["invasive", "rare", "other_species"]),
     monitoringAreas: new Set(),
@@ -572,7 +570,7 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
           .map((row) => {
             const lat = parseFloat((row.latitude || "").trim());
             const lon = parseFloat((row.longitude || "").trim());
-            const observedOn = parseObservedOn(row.observed_on || "");
+            const observedOn = parseObservedOn(row.observed_on || "", "inaturalist");
 
             if (!observedOn || isNaN(lat) || isNaN(lon)) return null;
 
@@ -585,13 +583,17 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
 
             const observation: Observation = {
               observed_on: observedOn,
+              observed_time: parseObservedTime(row.observed_on_string || ""),
               latitude: lat,
               longitude: lon,
               user_login: userLogin,
               quality_grade: (row.quality_grade || "").trim().toLowerCase(),
               iconic_taxon_name: (row.iconic_taxon_name || "").trim(),
               scientific_name: (row.scientific_name || "").trim(),
-              common_name: (row.common_name || "").trim() || undefined,
+              common_name: getInaturalistCommonName(
+                inatId,
+                (row.common_name || "").trim() || undefined,
+              ),
               taxon_order_name: (row.taxon_order_name || "").trim(),
               user_category: userCategory,
               user_subcategory: userSubcategory,
@@ -618,7 +620,16 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
           .filter((obs): obs is Observation => obs !== null);
         console.log("Loaded MERLIN observations:", merlinObservations.length);
 
-        const joinedObservations = [...tziporiObservations, ...merlinObservations];
+        // This separate, verified batch adds source IDs without updating historical rows.
+        const additionsResponse = await fetch("/inaturalist-september-2026-additions.json");
+        if (!additionsResponse.ok) throw new Error("Unable to load iNaturalist additions");
+        const additionsData: unknown = await additionsResponse.json();
+        const joinedObservations = appendInaturalistAdditions(
+          [...tziporiObservations, ...merlinObservations],
+          additionsData,
+          parseObservedOn,
+          parseObservedTime,
+        );
         setObservations(joinedObservations);
 
         // Build per-user observation counts and metadata for leaderboards

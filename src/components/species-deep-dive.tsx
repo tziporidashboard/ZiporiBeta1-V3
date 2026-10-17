@@ -11,7 +11,8 @@
  *     names), `search` (species search box text).
  *   - Builds `groupedSpecies`: every distinct, non-generic species from
  *     `@/lib/species-map` bucketed into dashboard `TaxaGroupKey`
- *     categories via a Hebrew category-name mapping.
+ *     categories via a Hebrew category-name mapping, plus reviewed
+ *     observation-level groups for the verified additions.
  *   - Applies the shared dashboard filters (`globallyFilteredObservations`)
  *     then narrows further by the active deep-dive `category`/`species`
  *     selection (`deepDiveFiltered`) for the KPI summary.
@@ -36,6 +37,7 @@
  *   `@/components/ui/input`.
  * Called by: the "Species Deep Dive" route/tab in the app shell.
  */
+import { matchesQualitySelection } from "@/lib/quality-filter";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useObservations,
@@ -46,6 +48,7 @@ import {
 } from "@/lib/observations-store";
 import { useI18n } from "@/lib/i18n";
 import { speciesMap, type SpeciesInfo } from "@/lib/species-map";
+import { getObservationTaxonomyOverride } from "@/lib/observation-taxonomy-overrides";
 import { getTaxonDetails } from "@/lib/taxonomy-engine";
 import { Search, ListFilter } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -197,18 +200,30 @@ export function SpeciesDeepDive() {
       grouped[group].push({ ...entry, parentCategory: group });
     }
 
+    // A name may occur in different groups in historical and corrected records.
+    // Keep the existing catalog and add the reviewed observation-level groups.
+    for (const observation of observations) {
+      if (getObservationTaxonomyOverride(observation) === null) continue;
+      const entry = uniqueSpecies.get(observation.scientific_name);
+      if (!entry || entry.isGeneric) continue;
+      const group = getTaxaGroup(observation);
+      if (!grouped[group].some((item) => item.Scientific_Name === entry.Scientific_Name)) {
+        grouped[group].push({ ...entry, parentCategory: group });
+      }
+    }
+
     for (const group of categories) {
       grouped[group].sort((a, b) => a.Scientific_Name.localeCompare(b.Scientific_Name));
     }
     return grouped;
-  }, []);
+  }, [observations]);
 
   // Species list for the active category, filtered by search
   const speciesList = useMemo(() => {
     const all = Object.values(groupedSpecies).flat();
     const associated = activeCategory
       ? all.filter((sp) => sp.parentCategory === activeCategory)
-      : all;
+      : [...new Map(all.map((sp) => [sp.Scientific_Name, sp])).values()];
     if (!search.trim()) return associated;
     const q = search.trim().toLowerCase();
     return associated.filter(
@@ -225,7 +240,7 @@ export function SpeciesDeepDive() {
         const ts = parseObsTimestamp(o.observed_on);
         if (isNaN(ts) || ts < filters.dateRange.start || ts > filters.dateRange.end) return false;
       }
-      if (filters.researchOnly && o.quality_grade !== "research") return false;
+      if (!matchesQualitySelection(o, filters.qualityGrades)) return false;
       if (filters.time.size > 0) {
         if (!o.observed_on || o.observed_on.length < 10) return false;
         const parts = o.observed_on.split("/");
@@ -440,7 +455,7 @@ export function SpeciesDeepDive() {
                   onClick={() => setIsSpeciesDropdownOpen(false)}
                   className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  מזער
+                  {t("minimize")}
                 </button>
               </div>
               <div className="p-1">
