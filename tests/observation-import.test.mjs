@@ -157,10 +157,24 @@ test("the separate batch is the exact source-verified snapshot and contains all 
     createHash("sha256").update(read(dataPath)).digest("hex"),
     "faeae6099f82360b517a9acdddc3aea859cccced8268aabb27e52b35fd527f4d",
   );
-  assert.equal(
-    createHash("sha256").update(read(batch.source.historicalFile)).digest("hex"),
-    batch.source.historicalSha256,
-  );
+  // Keep the approved CRLF source hash; normalize only LF/CRLF in memory.
+  // Do not trim content or normalize lone CR characters.
+  const historicalSource = read(batch.source.historicalFile);
+  const historicalHash = (csv) =>
+    createHash("sha256").update(csv.replace(/\r?\n/g, "\r\n")).digest("hex");
+  const lfSource = historicalSource.replace(/\r\n/g, "\n");
+  for (const csv of [historicalSource, lfSource, lfSource.replace(/\n/g, "\r\n")]) {
+    assert.equal(historicalHash(csv), batch.source.historicalSha256);
+  }
+  // A changed ID, removed content, whitespace or lone CR must still fail integrity.
+  for (const changedSource of [
+    historicalSource.replace(inat[0].id, `${inat[0].id}0`),
+    historicalSource.slice(0, -100),
+    `${historicalSource} `,
+    `${historicalSource}\r`,
+  ]) {
+    assert.notEqual(historicalHash(changedSource), batch.source.historicalSha256);
+  }
   assert.equal(batch.source.idColumn, "originalRecordId");
   assert.equal(new Set(batch.records.map((r) => r.values.originalRecordId)).size, 979);
   for (const row of batch.records) assert.equal(Object.keys(row.values).length, 22);

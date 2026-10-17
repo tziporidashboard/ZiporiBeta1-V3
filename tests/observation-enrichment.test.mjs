@@ -55,10 +55,24 @@ test("all 512 approved entries target unique historical IDs with empty names and
   assert.equal(provenance.validatedEntries, 512);
   assert.equal(provenance.sourceIdColumn, "originalRecordId");
   assert.equal(provenance.sourceNameColumn, "hebrew_name");
-  assert.equal(
-    createHash("sha256").update(read(provenance.historicalSourceFile)).digest("hex"),
-    provenance.historicalSourceSha256,
-  );
+  // Keep the approved CRLF source hash; normalize only LF/CRLF in memory.
+  // Do not trim content or normalize lone CR characters.
+  const historicalSource = read(provenance.historicalSourceFile);
+  const historicalHash = (csv) =>
+    createHash("sha256").update(csv.replace(/\r?\n/g, "\r\n")).digest("hex");
+  const lfSource = historicalSource.replace(/\r\n/g, "\n");
+  for (const csv of [historicalSource, lfSource, lfSource.replace(/\n/g, "\r\n")]) {
+    assert.equal(historicalHash(csv), provenance.historicalSourceSha256);
+  }
+  // A changed ID, removed content, whitespace or lone CR must still fail integrity.
+  for (const changedSource of [
+    historicalSource.replace(inat[0].id, `${inat[0].id}0`),
+    historicalSource.slice(0, -100),
+    `${historicalSource} `,
+    `${historicalSource}\r`,
+  ]) {
+    assert.notEqual(historicalHash(changedSource), provenance.historicalSourceSha256);
+  }
   // Snapshot derived independently from the 512 revalidated Excel/audit matches.
   // The private Excel workbook is deliberately not required to run repository tests.
   const approvedValues = entries
