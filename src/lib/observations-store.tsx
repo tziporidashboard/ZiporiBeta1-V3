@@ -17,6 +17,8 @@
  *   3. Fetches `/MERLIN all observations for Zohar.csv` — expert-recorded
  *      observations (parsed via `parseMerlinRow`), merged with the
  *      iNaturalist rows into one combined `observations` array.
+ *      Appends `/inaturalist-september-2026-additions.json` by original
+ *      iNaturalist ID, using observation-level Excel groups for new rows only.
  *   4. Fetches `/monitoring-areas.geojson` (via
  *      `@/lib/monitoring-areas.ts`) and builds a per-observation
  *      monitoring-area membership index.
@@ -43,6 +45,10 @@
  */
 import { createDefaultQualitySelection, type QualityGrade } from "@/lib/quality-filter";
 import { getInaturalistCommonName } from "./observation-enrichment";
+import {
+  appendInaturalistAdditions,
+  type ObservationSourceMetadata,
+} from "./inaturalist-additions";
 import {
   createContext,
   useContext,
@@ -82,6 +88,7 @@ export type Observation = {
   composite_id?: string;
   source?: "merlin" | "inaturalist";
   source_url?: string;
+  source_metadata?: ObservationSourceMetadata;
 };
 
 // Group name translations (Hebrew -> English for language toggle)
@@ -609,7 +616,16 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
           .filter((obs): obs is Observation => obs !== null);
         console.log("Loaded MERLIN observations:", merlinObservations.length);
 
-        const joinedObservations = [...tziporiObservations, ...merlinObservations];
+        // This separate, verified batch adds source IDs without updating historical rows.
+        const additionsResponse = await fetch("/inaturalist-september-2026-additions.json");
+        if (!additionsResponse.ok) throw new Error("Unable to load iNaturalist additions");
+        const additionsData: unknown = await additionsResponse.json();
+        const joinedObservations = appendInaturalistAdditions(
+          [...tziporiObservations, ...merlinObservations],
+          additionsData,
+          parseObservedOn,
+          parseObservedTime,
+        );
         setObservations(joinedObservations);
 
         // Build per-user observation counts and metadata for leaderboards
