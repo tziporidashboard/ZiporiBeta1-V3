@@ -508,12 +508,7 @@ export function SpeciesDeepDive() {
       {/* Map Container */}
       <div className="h-[50%] shrink-0 px-2 pt-1">
         <div className="h-full w-full rounded-lg shadow-sm overflow-hidden">
-          <ObservationMap
-            data={globallyFilteredObservations.filter(
-              (o) => !category || getTaxaGroup(o) === category,
-            )}
-            selectedSpecies={species}
-          />
+          <ObservationMap data={deepDiveFiltered} selectedSpecies={species} />
         </div>
       </div>
 
