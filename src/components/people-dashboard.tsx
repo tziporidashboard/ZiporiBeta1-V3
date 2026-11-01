@@ -134,6 +134,7 @@ export function PeopleDashboard() {
           filters.areas,
           filters.monitoringAreas,
           observationMonitoringAreaIndex,
+          filters.drawnPolygon,
         )
       )
         return false;

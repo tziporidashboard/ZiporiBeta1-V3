@@ -14,10 +14,13 @@
     "test:people-groups": "node --test tests/people-groups.test.mjs",
     "test:import": "node --test tests/observation-import.test.mjs",
     "test:taxonomy": "node --test tests/observation-taxonomy.test.mjs",
+    "test:species-map": "node --test tests/species-map-filtering.test.mjs",
+    "test:polygon": "node --test tests/drawn-polygon.test.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {
     "@changey/react-leaflet-markercluster": "^4.0.0-rc1",
+    "@geoman-io/leaflet-geoman-free": "^2.20.4",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",

@@ -25,6 +25,7 @@
  *   by area.
  */
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
+import { observationMatchesDrawnPolygon } from "./drawn-polygon";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { Observation } from "./observations-store";
 import type { Lang } from "./i18n";
@@ -154,7 +155,9 @@ export function observationMatchesSelectedAreas(
   selectedSurveyAreas: ReadonlySet<SurveyAreaKey>,
   selectedMonitoringAreaIds: ReadonlySet<string>,
   index: ObservationMonitoringAreaIndex,
+  drawnPolygon?: Polygon | null,
 ): boolean {
+  if (!observationMatchesDrawnPolygon(observation, drawnPolygon)) return false;
   const surveyArea = getObservationArea(observation.latitude, observation.longitude);
   if (
     (surveyArea === null && selectedSurveyAreas.has("other_areas")) ||

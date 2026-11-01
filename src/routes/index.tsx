@@ -186,6 +186,7 @@ function ResetFiltersButton() {
     groupsInData.add("expert");
     deepDiveActions.setDeepDiveCategory(null);
     setFilters({
+      drawnPolygon: null,
       time: defaultTime,
       taxa: new Set([
         "mammals",

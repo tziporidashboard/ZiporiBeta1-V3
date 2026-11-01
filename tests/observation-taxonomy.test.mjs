@@ -343,7 +343,7 @@ test("corrected map bubbles never mix categories; all IDs and detail records rem
       assert.ok(expected.has(id));
       assert.equal(bubble.category, expected.get(id).group);
     }
-  const details = evaluate(`return (allObservations) => (${memo(mapAst, "observationsMap")})();`)(
+  const details = evaluate(`return (data) => (${memo(mapAst, "observationsMap")})();`)(
     observations,
   );
   const select = evaluate(

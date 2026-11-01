@@ -2,6 +2,7 @@
 @source "../src";
 @import "tw-animate-css";
 @import "leaflet/dist/leaflet.css";
+@import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 
 @custom-variant dark (&:is(.dark *));
 

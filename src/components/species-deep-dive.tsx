@@ -15,11 +15,11 @@
  *     observation-level groups for the verified additions.
  *   - Applies the shared dashboard filters (`globallyFilteredObservations`)
  *     then narrows further by the active deep-dive `category`/`species`
- *     selection (`deepDiveFiltered`) for the KPI summary.
+ *     selection (`deepDiveFiltered`) for the KPI summary and map.
  *   - Computes per-category and per-species observation counts to badge
  *     the category tabs and the species dropdown checkboxes.
  *   - Renders KPI strip, category tabs, species search dropdown, the
- *     `ObservationMap` (highlighting selected species),
+ *     `ObservationMap` (showing only the filtered observations),
  *     `SpeciesInsightsTable`, and `DeepDiveTimeSeriesChart`.
  *
  * Key helpers:
@@ -265,6 +265,7 @@ export function SpeciesDeepDive() {
           filters.areas,
           filters.monitoringAreas,
           observationMonitoringAreaIndex,
+          filters.drawnPolygon,
         )
       )
         return false;

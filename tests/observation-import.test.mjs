@@ -498,7 +498,7 @@ test("map bubbles and details include every new ID; historical monitoring member
     13653,
   );
   assert.deepEqual(bubbles.flatMap((b) => b.observation_ids).sort(), ids(observations));
-  const details = evaluate(`return (allObservations) => (${memo(ast, "observationsMap")})();`)(
+  const details = evaluate(`return (data) => (${memo(ast, "observationsMap")})();`)(
     observations,
   );
   for (const row of additions) assert.equal(details.get(row.composite_id), row);

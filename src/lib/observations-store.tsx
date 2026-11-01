@@ -60,6 +60,7 @@ import {
   type ReactNode,
 } from "react";
 import Papa from "papaparse";
+import type { Polygon } from "geojson";
 import type { SurveyAreaKey } from "./survey-polygons";
 import { SURVEY_AREA_KEYS } from "./survey-polygons";
 import { getSpeciesHebrewName } from "./species-dictionary";
@@ -378,6 +379,8 @@ export function getSpeciesClassification(o: Observation): string {
 
 /** time: year -> set of months. Empty set means "all months of that year". */
 export type Filters = {
+  /** In-memory GeoJSON only; null disables the user-drawn geographic filter. */
+  drawnPolygon: Polygon | null;
   time: Map<string, Set<string>>;
   taxa: Set<TaxaGroupKey>;
   groups: Set<string>;
@@ -439,6 +442,7 @@ const ObservationsCtx = createContext<Ctx | null>(null);
 export function ObservationsProvider({ children }: { children: ReactNode }) {
   const [observations, setObservations] = useState<Observation[]>([]);
   const [filters, setFilters] = useState<Filters>({
+    drawnPolygon: null,
     time: new Map(),
     taxa: new Set([
       "mammals",

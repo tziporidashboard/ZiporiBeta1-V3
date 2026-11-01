@@ -43,23 +43,40 @@ import type { Observation } from "@/lib/observations-store";
 import { useObservations, getTaxaGroup, translateSpeciesName } from "@/lib/observations-store";
 import { getObservationTaxonomyOverride } from "@/lib/observation-taxonomy-overrides";
 import { useI18n } from "@/lib/i18n";
-import { SURVEY_POLYGONS, SURVEY_AREA_KEYS, translateArea, type SurveyAreaKey } from "@/lib/survey-polygons";
+import {
+  SURVEY_POLYGONS,
+  SURVEY_AREA_KEYS,
+  translateArea,
+  type SurveyAreaKey,
+} from "@/lib/survey-polygons";
 import { translateMonitoringAreaName } from "@/lib/monitoring-areas";
+import type { Polygon as GeoJsonPolygon } from "geojson";
+import { PolygonFilterControl } from "@/components/polygon-filter-control";
 
-function FitBounds({ obs }: { obs: Observation[] }) {
+function FitBounds({
+  obs,
+  polygon,
+  drawing,
+}: {
+  obs: Observation[];
+  polygon: GeoJsonPolygon | null;
+  drawing: boolean;
+}) {
   const map = useMap();
   useEffect(() => {
-    if (obs.length === 0) return;
-    const bounds = L.latLngBounds(obs.map((o) => [o.latitude, o.longitude] as [number, number]));
+    if (drawing || (!polygon && obs.length === 0)) return;
+    const points = polygon
+      ? polygon.coordinates[0].map(([lng, lat]) => [lat, lng] as [number, number])
+      : obs.map((o) => [o.latitude, o.longitude] as [number, number]);
+    const bounds = L.latLngBounds(points);
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true });
-  }, [obs, map]);
+  }, [obs, map, polygon, drawing]);
   return null;
 }
 
 function ZoomTracker({ onZoom }: { onZoom: (z: number) => void }) {
   const map = useMapEvents({
     zoomend: (e) => {
-      console.log("🔍 ZOOM LEVEL CHANGED TO:", map.getZoom());
       onZoom(e.target.getZoom());
     },
   });
@@ -86,6 +103,7 @@ function MapClickHandler({
 }) {
   useMapEvents({
     click: (e) => {
+      if (e.target.pm?.globalDrawModeEnabled()) return;
       if (zoom < 12) {
         onClose();
         return;
@@ -119,16 +137,29 @@ type Bubble = {
   lng: number;
   count: number;
   category: string;
-  raw_observations: Array<{ species: string; date: string; originalLat: number; originalLng: number }>;
+  raw_observations: Array<{
+    species: string;
+    date: string;
+    originalLat: number;
+    originalLng: number;
+  }>;
   observation_ids: string[];
 };
 
-export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { data: Observation[]; selectedSpecies?: Set<string> }) {
-  const { filters, monitoringAreas, observations: allObservations } = useObservations();
+export function ObservationMap({
+  data,
+  selectedSpecies = new Set<string>(),
+}: {
+  data: Observation[];
+  selectedSpecies?: Set<string>;
+}) {
+  const { filters, monitoringAreas } = useObservations();
   const { t, lang } = useI18n();
   const selectedAreas = new Set(filters.areas) as Set<SurveyAreaKey>;
   const baseAreaKeys = SURVEY_AREA_KEYS.filter((k) => k !== "other_areas");
   const [zoom, setZoom] = useState<number>(7);
+  const [drawing, setDrawing] = useState(false);
+  const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
   const [selectedBubbleIds, setSelectedBubbleIds] = useState<string[] | null>(null);
   const [activeObservationId, setActiveObservationId] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -138,10 +169,10 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
   // clicks regardless of whether a shape was actually drawn there. Sharing one
   // renderer lets Leaflet's own per-layer hit-testing resolve overlaps correctly.
   const canvasRenderer = useMemo(() => L.canvas(), []);
-  // O(1) dictionary lookup: composite_id -> full Observation, built once per dataset change.
+  // Resolve details only against current filtered data, never hidden observations.
   const observationsMap = useMemo(
-    () => new Map(allObservations.filter((o) => o.composite_id).map((o) => [o.composite_id as string, o])),
-    [allObservations],
+    () => new Map(data.filter((o) => o.composite_id).map((o) => [o.composite_id as string, o])),
+    [data],
   );
   const visibleMonitoringAreas = useMemo(
     () =>
@@ -156,9 +187,7 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
     [monitoringAreas, filters.monitoringAreas],
   );
 
-  const center: [number, number] = data[0]
-    ? [data[0].latitude, data[0].longitude]
-    : [31.5, 34.9]; // default Israel
+  const center: [number, number] = data[0] ? [data[0].latitude, data[0].longitude] : [31.5, 34.9]; // default Israel
 
   // Keep corrected records separate without regrouping any unreviewed records.
   const bubbles = useMemo(() => {
@@ -185,12 +214,14 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
           lng: obs.longitude,
           count: 1,
           category,
-          raw_observations: [{
-            species: obs.scientific_name,
-            date: obs.observed_on,
-            originalLat: obs.latitude,
-            originalLng: obs.longitude,
-          }],
+          raw_observations: [
+            {
+              species: obs.scientific_name,
+              date: obs.observed_on,
+              originalLat: obs.latitude,
+              originalLng: obs.longitude,
+            },
+          ],
           observation_ids: obs.composite_id ? [obs.composite_id] : [],
         });
       }
@@ -210,35 +241,15 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
     [bubbles, selectedSpecies],
   );
 
-  const mergedBubbles = bubbles.filter(b => b.count > 1);
-  let totalMergedObservations = 0;
-
-  console.group('--- FULL AGGREGATION AUDIT REPORT ---');
-  console.log(`Total Bubbles on Map (All): ${bubbles.length}`);
-  console.log(`Bubbles containing MULTIPLE observations: ${mergedBubbles.length}`);
-
-  mergedBubbles.forEach((bubble, index) => {
-    totalMergedObservations += bubble.count;
-    console.groupCollapsed(`Merged Bubble #${index + 1}: ${bubble.raw_observations[0]?.species} | Date: ${bubble.raw_observations[0]?.date} | Count: ${bubble.count}`);
-    console.log(`Rounded Anchor: Lat=${bubble.lat}, Lng=${bubble.lng}`);
-    console.table(bubble.raw_observations);
-    console.groupEnd();
-  });
-
-  console.log('--- SUMMARY ---');
-  console.log(`Total original observations hidden inside merged bubbles: ${totalMergedObservations}`);
-  console.log(`Total points saved from rendering on map: ${totalMergedObservations - mergedBubbles.length}`);
-  console.groupEnd();
-
   // Color palette matching taxa tabs (soft/pastel colors)
   const categoryColors: Record<string, { color: string; fillColor: string }> = {
-    birds: { color: "#0ea5e9", fillColor: "#7dd3fc" },        // sky-500, sky-300
-    butterflies: { color: "#f97316", fillColor: "#fdba74" },  // orange-500, orange-300
-    dragonflies: { color: "#14b8a6", fillColor: "#5eead4" },  // teal-500, teal-300
-    arthropods: { color: "#dc2626", fillColor: "#fca5a5" },   // red-600, red-300
-    mammals: { color: "#a855f7", fillColor: "#d8b4fe" },      // purple-500, purple-300
-    plants: { color: "#65a30d", fillColor: "#bef264" },       // lime-600, lime-300
-    other: { color: "#6b7280", fillColor: "#d4d4d8" },        // gray-500, gray-300
+    birds: { color: "#0ea5e9", fillColor: "#7dd3fc" }, // sky-500, sky-300
+    butterflies: { color: "#f97316", fillColor: "#fdba74" }, // orange-500, orange-300
+    dragonflies: { color: "#14b8a6", fillColor: "#5eead4" }, // teal-500, teal-300
+    arthropods: { color: "#dc2626", fillColor: "#fca5a5" }, // red-600, red-300
+    mammals: { color: "#a855f7", fillColor: "#d8b4fe" }, // purple-500, purple-300
+    plants: { color: "#65a30d", fillColor: "#bef264" }, // lime-600, lime-300
+    other: { color: "#6b7280", fillColor: "#d4d4d8" }, // gray-500, gray-300
   };
 
   const getCategoryColor = (category: string) => {
@@ -255,6 +266,11 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
       .map((id) => observationsMap.get(id))
       .filter((obs): obs is Observation => Boolean(obs));
   }, [selectedBubbleIds, observationsMap]);
+
+  useEffect(() => {
+    setSelectedBubbleIds(null);
+    setActiveObservationId(null);
+  }, [data, drawing]);
 
   useEffect(() => {
     if (selectedObservations.length > 0) {
@@ -280,165 +296,183 @@ export function ObservationMap({ data, selectedSpecies = new Set<string>() }: { 
   }, [selectedBubbleIds]);
 
   return (
-    <div ref={mapContainerRef} className="relative h-full w-full overflow-hidden rounded-lg border bg-card">
-      <MapContainer
-        center={center}
-        zoom={7}
-        scrollWheelZoom
-        preferCanvas={true}
-        style={{ height: "100%", width: "100%" }}
-      >
-        <TileLayer
-          attribution='&copy; OpenStreetMap'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <FitBounds obs={data} />
-        <ZoomTracker onZoom={setZoom} />
-        <MapClickHandler
-          bubbles={clickableBubbles}
-          zoom={zoom}
-          onSelect={setSelectedBubbleIds}
-          onClose={() => {
-            setSelectedBubbleIds(null);
-            setActiveObservationId(null);
-          }}
-        />
-        {visibleMonitoringAreas && (
-          <GeoJSON
-            key={`${lang}:${Array.from(filters.monitoringAreas).sort().join("|")}`}
-            data={visibleMonitoringAreas}
-            style={() => ({
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-lg border bg-card">
+      <div ref={setToolbar} className="shrink-0 border-b" />
+      <div ref={mapContainerRef} className="relative min-h-0 flex-1">
+        <MapContainer
+          pmIgnore={false}
+          center={center}
+          zoom={7}
+          scrollWheelZoom
+          preferCanvas={true}
+          style={{ height: "100%", width: "100%" }}
+        >
+          <TileLayer
+            attribution="&copy; OpenStreetMap"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <PolygonFilterControl toolbar={toolbar} drawing={drawing} onDrawingChange={setDrawing} />
+          <FitBounds obs={data} polygon={filters.drawnPolygon} drawing={drawing} />
+          <ZoomTracker onZoom={setZoom} />
+          <MapClickHandler
+            bubbles={clickableBubbles}
+            zoom={zoom}
+            onSelect={setSelectedBubbleIds}
+            onClose={() => {
+              setSelectedBubbleIds(null);
+              setActiveObservationId(null);
+            }}
+          />
+          {visibleMonitoringAreas && (
+            <GeoJSON
+              key={`${lang}:${Array.from(filters.monitoringAreas).sort().join("|")}`}
+              data={visibleMonitoringAreas}
+              style={() => ({
+                color: "#4b5563",
+                fillColor: "#9ca3af",
+                fillOpacity: 0.35,
+                opacity: 1,
+                weight: 3,
+                interactive: true,
+                renderer: canvasRenderer,
+              })}
+              onEachFeature={(feature, layer) => {
+                layer.bindTooltip(
+                  translateMonitoringAreaName(
+                    {
+                      id: String(feature.properties?.id ?? ""),
+                      name: String(feature.properties?.name ?? t("monitoringArea")),
+                      color: String(feature.properties?.color ?? ""),
+                    },
+                    lang,
+                  ),
+                  {
+                    sticky: true,
+                    direction: "top",
+                    opacity: 0.95,
+                  },
+                );
+              }}
+            />
+          )}
+          {baseAreaKeys.map((areaKey) => {
+            const rings = SURVEY_POLYGONS[areaKey];
+            if (!rings) return null;
+            const isSelected = selectedAreas.has(areaKey);
+            if (!isSelected) return null;
+            const pathOptions = {
               color: "#4b5563",
               fillColor: "#9ca3af",
               fillOpacity: 0.35,
-              opacity: 1,
               weight: 3,
+              opacity: 1,
               interactive: true,
-              renderer: canvasRenderer,
-            })}
-            onEachFeature={(feature, layer) => {
-              layer.bindTooltip(translateMonitoringAreaName({
-                id: String(feature.properties?.id ?? ""),
-                name: String(feature.properties?.name ?? t("monitoringArea")),
-                color: String(feature.properties?.color ?? ""),
-              }, lang), {
-                sticky: true,
-                direction: "top",
-                opacity: 0.95,
-              });
-            }}
-          />
-        )}
-        {baseAreaKeys.map((areaKey) => {
-          const rings = SURVEY_POLYGONS[areaKey];
-          if (!rings) return null;
-          const isSelected = selectedAreas.has(areaKey);
-          if (!isSelected) return null;
-          const pathOptions = {
-            color: "#4b5563",
-            fillColor: "#9ca3af",
-            fillOpacity: 0.35,
-            weight: 3,
-            opacity: 1,
-            interactive: true,
-          };
-          return (
-            <Polygon
-              key={areaKey}
-              positions={rings.map(ringToLatLng)}
-              pathOptions={pathOptions}
-              renderer={canvasRenderer}
-            >
-              <Tooltip sticky direction="top" opacity={0.95}>
-                {translateArea(areaKey, lang)}
-              </Tooltip>
-            </Polygon>
-          );
-        })}
-        {bubbles.map((bubble, i) => {
-          const colors = getCategoryColor(bubble.category);
-          const isSelected = selectedSpecies.size === 0 || selectedSpecies.has(bubble.raw_observations[0]?.species);
-          const isBubbleSelected = selectedBubbleIds !== null && bubble.observation_ids.some((id) => selectedBubbleIds.includes(id));
-          const baseRadius = Math.min(5 + bubble.count * 2, 40);
-          return (
-            <CircleMarker
-              key={i}
-              center={[bubble.lat, bubble.lng]}
-              radius={isBubbleSelected ? baseRadius + 4 : baseRadius}
-              pathOptions={{
-                color: isBubbleSelected ? "black" : colors.color,
-                fillColor: isBubbleSelected ? "white" : colors.fillColor,
-                fillOpacity: isBubbleSelected ? 1 : (isSelected ? 0.6 : 0.15),
-                weight: isBubbleSelected ? 2 : (isSelected ? 2 : 1),
-                opacity: isBubbleSelected ? 1 : (isSelected ? 1 : 0.3),
-              }}
-              interactive={false}
-              renderer={canvasRenderer}
-            />
-          );
-        })}
-      </MapContainer>
-      {selectedBubbleIds && (
-        <div ref={sidebarRef} className="absolute top-0 right-0 h-full w-80 bg-white shadow-2xl z-[1000] p-4 overflow-y-auto flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">
-              {t("observationDetails")} ({selectedObservations.length})
-            </h3>
-            <button
-              type="button"
-              onClick={() => setSelectedBubbleIds(null)}
-              className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
-            >
-              ✕ {t("close")}
-            </button>
-          </div>
-          {selectedObservations.length === 0 && (
-            <p className="text-sm text-muted-foreground">{t("noObservationDetails")}</p>
-          )}
-          {selectedObservations.map((obs, idx) => (
-            <div
-              key={obs.composite_id ?? idx}
-              onClick={() => setActiveObservationId(obs.composite_id ?? null)}
-              className={`flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-sm cursor-pointer transition-colors ${
-                activeObservationId === obs.composite_id ? "bg-blue-50 ring-1 ring-blue-200" : ""
-              }`}
-            >
-              <div className="text-center font-medium italic">
-                {lang === "he" ? translateSpeciesName(obs.scientific_name) : obs.scientific_name}
-              </div>
-              <div>
-                <span className="font-medium">{t("userName")}: </span>
-                {obs.user_login}
-              </div>
-              <div>
-                <span className="font-medium">{t("date")}: </span>
-                {obs.observed_on}
-              </div>
-              <div>
-                <span
-                  className={`inline-block w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
-                    obs.source === "inaturalist"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-blue-100 text-blue-800"
-                  }`}
-                >
-                  {obs.source === "inaturalist" ? "iNaturalist" : t("professionalObserver")}
-                </span>
-              </div>
-              {obs.source === "inaturalist" && obs.source_url && (
-                <a
-                  href={obs.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-block rounded-md bg-emerald-600 px-3 py-1.5 text-center text-xs font-medium text-white hover:bg-emerald-700"
-                >
-                  {t("viewOnINaturalist")}
-                </a>
-              )}
+            };
+            return (
+              <Polygon
+                key={areaKey}
+                positions={rings.map(ringToLatLng)}
+                pathOptions={pathOptions}
+                renderer={canvasRenderer}
+              >
+                <Tooltip sticky direction="top" opacity={0.95}>
+                  {translateArea(areaKey, lang)}
+                </Tooltip>
+              </Polygon>
+            );
+          })}
+          {bubbles.map((bubble, i) => {
+            const colors = getCategoryColor(bubble.category);
+            const isSelected =
+              selectedSpecies.size === 0 ||
+              selectedSpecies.has(bubble.raw_observations[0]?.species);
+            const isBubbleSelected =
+              selectedBubbleIds !== null &&
+              bubble.observation_ids.some((id) => selectedBubbleIds.includes(id));
+            const baseRadius = Math.min(5 + bubble.count * 2, 40);
+            return (
+              <CircleMarker
+                key={i}
+                center={[bubble.lat, bubble.lng]}
+                radius={isBubbleSelected ? baseRadius + 4 : baseRadius}
+                pathOptions={{
+                  color: isBubbleSelected ? "black" : colors.color,
+                  fillColor: isBubbleSelected ? "white" : colors.fillColor,
+                  fillOpacity: isBubbleSelected ? 1 : isSelected ? 0.6 : 0.15,
+                  weight: isBubbleSelected ? 2 : isSelected ? 2 : 1,
+                  opacity: isBubbleSelected ? 1 : isSelected ? 1 : 0.3,
+                }}
+                interactive={false}
+                renderer={canvasRenderer}
+              />
+            );
+          })}
+        </MapContainer>
+        {selectedBubbleIds && selectedObservations.length > 0 && !drawing && (
+          <div
+            ref={sidebarRef}
+            className="absolute top-0 right-0 h-full w-80 max-w-full bg-white shadow-2xl z-[1000] p-4 overflow-y-auto flex flex-col gap-4"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">
+                {t("observationDetails")} ({selectedObservations.length})
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedBubbleIds(null)}
+                className="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
+              >
+                ✕ {t("close")}
+              </button>
             </div>
-          ))}
-        </div>
-      )}
+            {selectedObservations.length === 0 && (
+              <p className="text-sm text-muted-foreground">{t("noObservationDetails")}</p>
+            )}
+            {selectedObservations.map((obs, idx) => (
+              <div
+                key={obs.composite_id ?? idx}
+                onClick={() => setActiveObservationId(obs.composite_id ?? null)}
+                className={`flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-sm cursor-pointer transition-colors ${
+                  activeObservationId === obs.composite_id ? "bg-blue-50 ring-1 ring-blue-200" : ""
+                }`}
+              >
+                <div className="text-center font-medium italic">
+                  {lang === "he" ? translateSpeciesName(obs.scientific_name) : obs.scientific_name}
+                </div>
+                <div>
+                  <span className="font-medium">{t("userName")}: </span>
+                  {obs.user_login}
+                </div>
+                <div>
+                  <span className="font-medium">{t("date")}: </span>
+                  {obs.observed_on}
+                </div>
+                <div>
+                  <span
+                    className={`inline-block w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
+                      obs.source === "inaturalist"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-blue-100 text-blue-800"
+                    }`}
+                  >
+                    {obs.source === "inaturalist" ? "iNaturalist" : t("professionalObserver")}
+                  </span>
+                </div>
+                {obs.source === "inaturalist" && obs.source_url && (
+                  <a
+                    href={obs.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-block rounded-md bg-emerald-600 px-3 py-1.5 text-center text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    {t("viewOnINaturalist")}
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

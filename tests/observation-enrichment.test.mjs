@@ -201,7 +201,7 @@ test("map groups, observation-detail index and monitoring memberships retain rec
   });
   assert.deepEqual(group(after), group(before));
   const buildDetails = evaluate(
-    `return (allObservations) => (${memoText(ast, "observationsMap")})();`,
+    `return (data) => (${memoText(ast, "observationsMap")})();`,
   );
   const details = buildDetails(after);
   assert.equal(details.size, 12674);
