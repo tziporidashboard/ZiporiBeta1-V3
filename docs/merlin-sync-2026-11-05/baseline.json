@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-05",
+  "files": {
+    "public/Until_June26.csv": "a1656992e598fd780a836c24b99961f55d01340611948d809517598415f08f11",
+    "public/MERLIN all observations for Zohar.csv": "42438b9a029b8ba81ff8625e7a28b8863adde48a70c69b5d30d3823981de8b75",
+    "public/inaturalist-september-2026-additions.json": "faeae6099f82360b517a9acdddc3aea859cccced8268aabb27e52b35fd527f4d",
+    "public/user_groups.csv": "2afc93d55bb3a21c5b04eb130717d90794e3f6f614c55623f24e50fa76dd133d",
+    "public/monitoring-areas.geojson": "fac75038b9561ea2e3409f5af9c862ba3979276405d790e4a2cdc1c50b30168e",
+    "src/lib/species-map.ts": "63e875cf4d812574948182d31a29062e7c7a70e7558c5c308e5edaa1ff170cdc",
+    "src/lib/species-registry.ts": "e601062b9c487631fc81df3161921153d0be03c4a7dc49fc6b396dfd2de27383",
+    "src/lib/observation-taxonomy-overrides.ts": "0ebb71d297f7b78d57f8b61d0ef83291c3ba266944bb3d9053cd28b1cf2635d0",
+    "src/lib/inaturalist-additions.ts": "ac9a1994cd5b2792972ed3bbfcb2734ea016ee948cea71be70d50b8a42bf6095",
+    "src/routeTree.gen.ts": "fe513400857214ac5d86672722817dc91b9e425e373c65219feae049a882bf0b"
+  },
+  "total": 13653,
+  "inatCount": 11296,
+  "inatSha256": "0ee79b05dc798ee6ba06246aef3127f65d8752ddaee776acc616da7280d1d5eb",
+  "inatClassificationSha256": "a1b750c40f2f5568d83940d945941b1deda23737116b6a9a4d8815b6747ed23a"
+}

@@ -124,7 +124,7 @@ const narrow = evaluate(
 );
 const summarize = evaluate(
   `return (deepDiveFiltered) => (${memo(speciesAst, "summary")})();`,
-  taxonomy,
+  store,
 );
 const bubblesFor = evaluate(`return (data) => (${memo(mapAst, "bubbles")})();`, {
   ...store,

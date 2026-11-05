@@ -43,13 +43,14 @@ import {
   useObservations,
   getSpeciesClassification,
   getTaxaGroup,
+  getObservationTaxonDetails,
+  getProfessionalTaxonomy,
   TAXA_GROUP_KEYS,
   type TaxaGroupKey,
 } from "@/lib/observations-store";
 import { useI18n } from "@/lib/i18n";
 import { speciesMap, type SpeciesInfo } from "@/lib/species-map";
 import { getObservationTaxonomyOverride } from "@/lib/observation-taxonomy-overrides";
-import { getTaxonDetails } from "@/lib/taxonomy-engine";
 import { Search, ListFilter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ObservationMap } from "@/components/observation-map";
@@ -203,6 +204,22 @@ export function SpeciesDeepDive() {
     // A name may occur in different groups in historical and corrected records.
     // Keep the existing catalog and add the reviewed observation-level groups.
     for (const observation of observations) {
+      const professional = getProfessionalTaxonomy(observation);
+      if (professional && !professional.isGeneric) {
+        const group = getTaxaGroup(observation);
+        const entry = {
+          Scientific_Name: observation.scientific_name,
+          Hebrew_Name: professional.name,
+          English_Name: professional.englishName,
+          Category: professional.category,
+          parentCategory: group,
+        };
+        // Add a scoped choice; never move a historical/iNaturalist catalog entry.
+        if (!grouped[group].some((item) => item.Scientific_Name === entry.Scientific_Name)) {
+          grouped[group].push(entry);
+        }
+        continue;
+      }
       if (getObservationTaxonomyOverride(observation) === null) continue;
       const entry = uniqueSpecies.get(observation.scientific_name);
       if (!entry || entry.isGeneric) continue;
@@ -291,7 +308,7 @@ export function SpeciesDeepDive() {
     let unidentified = 0;
     for (const o of deepDiveFiltered) {
       if (o.user_login) observers.add(o.user_login);
-      const details = getTaxonDetails(o.scientific_name, o.iconic_taxon_name, o.common_name);
+      const details = getObservationTaxonDetails(o);
       if (details.isGeneric) {
         unidentified++;
       } else if (o.scientific_name) {

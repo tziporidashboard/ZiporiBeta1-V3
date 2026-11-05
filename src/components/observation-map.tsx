@@ -40,7 +40,12 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import type { Observation } from "@/lib/observations-store";
-import { useObservations, getTaxaGroup, translateSpeciesName } from "@/lib/observations-store";
+import {
+  useObservations,
+  getTaxaGroup,
+  translateSpeciesName,
+  getProfessionalTaxonomy,
+} from "@/lib/observations-store";
 import { getObservationTaxonomyOverride } from "@/lib/observation-taxonomy-overrides";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -195,7 +200,8 @@ export function ObservationMap({
 
     for (const obs of data) {
       const category = getTaxaGroup(obs) || "other";
-      const correction = getObservationTaxonomyOverride(obs);
+      const correction =
+        getObservationTaxonomyOverride(obs) ?? getProfessionalTaxonomy(obs)?.category ?? null;
       const key = `${obs.scientific_name}|${obs.observed_on}|${obs.latitude.toFixed(3)}|${obs.longitude.toFixed(3)}${correction === null ? "" : `|${correction}`}`;
 
       if (groups.has(key)) {
@@ -437,7 +443,10 @@ export function ObservationMap({
                 }`}
               >
                 <div className="text-center font-medium italic">
-                  {lang === "he" ? translateSpeciesName(obs.scientific_name) : obs.scientific_name}
+                  {lang === "he"
+                    ? (getProfessionalTaxonomy(obs)?.name ??
+                      translateSpeciesName(obs.scientific_name))
+                    : getProfessionalTaxonomy(obs)?.englishName || obs.scientific_name}
                 </div>
                 <div>
                   <span className="font-medium">{t("userName")}: </span>

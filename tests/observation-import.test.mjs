@@ -74,6 +74,9 @@ const loader = evaluate(
   {
     ...enrichment,
     appendInaturalistAdditions,
+    // Exercise the documented rollback path and retain the independent 2026-09
+    // import guarantees. merlin-sync.test.mjs exercises the enabled full loader.
+    MERLIN_SYNC_ENABLED: false,
     Papa,
     console: { log() {}, error: (...args) => assert.fail(args.join(" ")) },
     fetch: async (url) => {

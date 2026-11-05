@@ -32,7 +32,7 @@
 import { matchesQualitySelection } from "@/lib/quality-filter";
 import { useMemo } from "react";
 import { useObservations, getTaxaGroup, getSpeciesClassification } from "@/lib/observations-store";
-import { getTaxonDetails } from "@/lib/taxonomy-engine";
+import { getObservationTaxonDetails } from "@/lib/observations-store";
 import { getObservationArea, type SurveyAreaKey } from "@/lib/survey-polygons";
 import { observationMatchesSelectedAreas } from "@/lib/monitoring-areas";
 import { useI18n } from "@/lib/i18n";
@@ -70,7 +70,8 @@ function areaMatches(selectedAreas: Set<SurveyAreaKey>, area: SurveyAreaKey | nu
 
 export function Dashboard() {
   const { t, lang, dir } = useI18n();
-  const { observations, filters, monitoringAreas, observationMonitoringAreaIndex } = useObservations();
+  const { observations, filters, monitoringAreas, observationMonitoringAreaIndex } =
+    useObservations();
 
   const filtered = useMemo(() => {
     return observations.filter((o) => {
@@ -159,7 +160,7 @@ export function Dashboard() {
     const species = new Set<string>();
     for (const o of filtered) {
       if (o.user_login) observers.add(o.user_login);
-      if (o.scientific_name && !getTaxonDetails(o.scientific_name).isGeneric) {
+      if (o.scientific_name && !getObservationTaxonDetails(o).isGeneric) {
         species.add(o.scientific_name);
       }
     }
@@ -355,14 +356,24 @@ export function Dashboard() {
               <DropdownMenuItem
                 disabled={filtered.length === 0}
                 onSelect={() =>
-                  exportObservations(filtered, monitoringAreas, observationMonitoringAreaIndex, lang)
+                  exportObservations(
+                    filtered,
+                    monitoringAreas,
+                    observationMonitoringAreaIndex,
+                    lang,
+                  )
                 }
               >
                 {t("exportFilteredObservations")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() =>
-                  exportObservations(observations, monitoringAreas, observationMonitoringAreaIndex, lang)
+                  exportObservations(
+                    observations,
+                    monitoringAreas,
+                    observationMonitoringAreaIndex,
+                    lang,
+                  )
                 }
               >
                 {t("exportAllObservations")}

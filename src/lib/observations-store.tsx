@@ -19,10 +19,13 @@
  *      iNaturalist rows into one combined `observations` array.
  *      Appends `/inaturalist-september-2026-additions.json` by original
  *      iNaturalist ID, using observation-level Excel groups for new rows only.
- *   4. Fetches `/monitoring-areas.geojson` (via
+ *   4. Replays the dated MERLIN_SYNC_SOURCES snapshots by stable source ID.
+ *      Missing historical records survive; taxonomy stays scoped to MERLIN.
+ *      MERLIN_SYNC_ENABLED=false restores the historical dataset.
+ *   5. Fetches `/monitoring-areas.geojson` (via
  *      `@/lib/monitoring-areas.ts`) and builds a per-observation
  *      monitoring-area membership index.
- *   5. Computes dataset-wide date bounds and initializes default filters
+ *   6. Computes dataset-wide date bounds and initializes default filters
  *      (all years selected, all detected user groups selected, plus
  *      "expert" always included).
  *
@@ -46,6 +49,16 @@
 import { createDefaultQualitySelection, type QualityGrade } from "@/lib/quality-filter";
 import { getInaturalistCommonName } from "./observation-enrichment";
 import { getObservationTaxonomyOverride } from "./observation-taxonomy-overrides";
+import { MERLIN_SYNC_ENABLED, MERLIN_SYNC_SOURCES, synchronizeMerlin } from "./merlin-sync";
+import {
+  getProfessionalTaxonomy,
+  getObservationTaxonDetails,
+  type ProfessionalObservationMetadata,
+} from "./professional-observation-details";
+export {
+  getProfessionalTaxonomy,
+  getObservationTaxonDetails,
+} from "./professional-observation-details";
 import {
   appendInaturalistAdditions,
   type ObservationSourceMetadata,
@@ -64,7 +77,7 @@ import type { Polygon } from "geojson";
 import type { SurveyAreaKey } from "./survey-polygons";
 import { SURVEY_AREA_KEYS } from "./survey-polygons";
 import { getSpeciesHebrewName } from "./species-dictionary";
-import { getTaxonCategory, getTaxonStatus } from "./taxonomy-engine";
+import { getTaxonCategory } from "./taxonomy-engine";
 import {
   buildObservationMonitoringAreaIndex,
   loadMonitoringAreas,
@@ -91,6 +104,7 @@ export type Observation = {
   source?: "merlin" | "inaturalist";
   source_url?: string;
   source_metadata?: ObservationSourceMetadata;
+  professional_metadata?: ProfessionalObservationMetadata;
 };
 
 // Group name translations (Hebrew -> English for language toggle)
@@ -343,6 +357,8 @@ const TAB_LABEL_TO_GROUP: Record<string, TaxaGroupKey> = {
  *  3. Default → "other".
  */
 export function getTaxaGroup(o: Observation): TaxaGroupKey {
+  const professional = getProfessionalTaxonomy(o);
+  if (professional) return TAB_LABEL_TO_GROUP[professional.category] ?? "other";
   const correction = getObservationTaxonomyOverride(o);
   if (correction !== null) return correction;
   const sci = o.scientific_name;
@@ -373,7 +389,7 @@ export function getTaxaGroup(o: Observation): TaxaGroupKey {
  *  Any species not listed in the registry defaults to other_species.
  */
 export function getSpeciesClassification(o: Observation): string {
-  const status = getTaxonStatus(o.scientific_name);
+  const status = getObservationTaxonDetails(o).status;
   return status === "other" ? "other_species" : status;
 }
 
@@ -628,12 +644,45 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
         const additionsResponse = await fetch("/inaturalist-september-2026-additions.json");
         if (!additionsResponse.ok) throw new Error("Unable to load iNaturalist additions");
         const additionsData: unknown = await additionsResponse.json();
-        const joinedObservations = appendInaturalistAdditions(
+        const historicalObservations = appendInaturalistAdditions(
           [...tziporiObservations, ...merlinObservations],
           additionsData,
           parseObservedOn,
           parseObservedTime,
         );
+        let joinedObservations = historicalObservations;
+        if (MERLIN_SYNC_ENABLED) {
+          // Preserve the original source and all iNaturalist objects. A failed
+          // snapshot fetch leaves the complete historical dashboard available.
+          try {
+            for (const source of MERLIN_SYNC_SOURCES) {
+              const response = await fetch(`/${source.file_name}`);
+              if (!response.ok) throw new Error("Unable to load professional monitoring snapshot");
+              const parsed = Papa.parse<Record<string, string>>(await response.text(), {
+                header: true,
+                skipEmptyLines: true,
+              });
+              if (
+                parsed.errors.length ||
+                !parsed.meta.fields?.includes("composite_id") ||
+                !parsed.data.length
+              ) {
+                throw new Error("Invalid professional monitoring CSV");
+              }
+              const synced = synchronizeMerlin(
+                joinedObservations,
+                parsed.data,
+                parseObservedOn,
+                parseObservedTime,
+                source,
+              );
+              joinedObservations = synced.observations;
+              console.info("Professional monitoring sync", synced.summary);
+            }
+          } catch (error) {
+            console.error("Professional monitoring update failed; historical data retained", error);
+          }
+        }
         setObservations(joinedObservations);
 
         // Build per-user observation counts and metadata for leaderboards

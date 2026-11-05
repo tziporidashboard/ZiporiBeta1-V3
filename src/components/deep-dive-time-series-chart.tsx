@@ -23,18 +23,32 @@
  */
 import { useMemo } from "react";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
 } from "recharts";
 import { useI18n, getLabel } from "@/lib/i18n";
-import { translateMonth, getTaxaGroup } from "@/lib/observations-store";
+import { translateMonth, getTaxaGroup, getProfessionalTaxonomy } from "@/lib/observations-store";
 import type { Observation, TaxaGroupKey } from "@/lib/observations-store";
 import { SPECIES_MAP } from "@/lib/species-dictionary";
 
 // Color palette for individual species lines
 const SPECIES_PALETTE = [
-  "#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c",
-  "#0891b2", "#be185d", "#4f46e5", "#ca8a04", "#059669",
+  "#2563eb",
+  "#dc2626",
+  "#16a34a",
+  "#9333ea",
+  "#ea580c",
+  "#0891b2",
+  "#be185d",
+  "#4f46e5",
+  "#ca8a04",
+  "#059669",
 ];
 
 const BACKGROUND_COLOR = "#737373";
@@ -56,7 +70,11 @@ function getSpeciesLabel(scientific_name: string, lang: "he" | "en"): string {
   const entry = SPECIES_MAP.get(scientific_name);
   if (!entry) return scientific_name;
   if (lang === "he") {
-    if (entry.Hebrew_Name && entry.Hebrew_Name !== "N/A" && HEBREW_LETTER_REGEX.test(entry.Hebrew_Name)) {
+    if (
+      entry.Hebrew_Name &&
+      entry.Hebrew_Name !== "N/A" &&
+      HEBREW_LETTER_REGEX.test(entry.Hebrew_Name)
+    ) {
       return entry.Hebrew_Name;
     }
     return scientific_name;
@@ -65,7 +83,12 @@ function getSpeciesLabel(scientific_name: string, lang: "he" | "en"): string {
   return scientific_name;
 }
 
-export function DeepDiveTimeSeriesChart({ allObservations, category, selectedSpecies, categoryColor }: Props) {
+export function DeepDiveTimeSeriesChart({
+  allObservations,
+  category,
+  selectedSpecies,
+  categoryColor,
+}: Props) {
   const { lang } = useI18n();
 
   const { chartData, seriesKeys, seriesColors, seriesLabels } = useMemo<{
@@ -136,7 +159,9 @@ export function DeepDiveTimeSeriesChart({ allObservations, category, selectedSpe
       // SCENARIO B: Individual species + rest of category
       const selectedSet = selectedSpecies;
 
-      const categoryObs = category ? allObservations.filter((o) => getTaxaGroup(o) === category) : allObservations;
+      const categoryObs = category
+        ? allObservations.filter((o) => getTaxaGroup(o) === category)
+        : allObservations;
 
       for (const o of categoryObs) {
         const parsed = parseSortKey(o.observed_on);
@@ -171,7 +196,15 @@ export function DeepDiveTimeSeriesChart({ allObservations, category, selectedSpe
 
       speciesKeys.forEach((sci, i) => {
         seriesColors[sci] = SPECIES_PALETTE[i % SPECIES_PALETTE.length];
-        seriesLabels[sci] = getSpeciesLabel(sci, lang);
+        const professional = categoryObs
+          .filter((o) => o.scientific_name === sci)
+          .map(getProfessionalTaxonomy)
+          .find(Boolean);
+        seriesLabels[sci] = professional
+          ? lang === "he"
+            ? professional.name
+            : professional.englishName || sci
+          : getSpeciesLabel(sci, lang);
       });
 
       return {
@@ -198,10 +231,7 @@ export function DeepDiveTimeSeriesChart({ allObservations, category, selectedSpe
             />
             <YAxis tick={{ fontSize: 10 }} width={44} tickCount={7} />
             <Tooltip
-              formatter={(value: number, key: string) => [
-                value,
-                seriesLabels[key] || key,
-              ]}
+              formatter={(value: number, key: string) => [value, seriesLabels[key] || key]}
             />
             <Legend
               content={() => (

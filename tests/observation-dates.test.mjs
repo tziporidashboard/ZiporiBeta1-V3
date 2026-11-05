@@ -342,6 +342,7 @@ test("map bubble records and rendered sidebar dates use corrected dates without 
   const ast = tree(read("src/components/observation-map.tsx"));
   const group = evaluate(`return (data) => (${memoText(ast, "bubbles")})();`, {
     getTaxaGroup: () => "other",
+    getProfessionalTaxonomy: () => undefined,
     ...loadProductionModule("src/lib/observation-taxonomy-overrides.ts"),
   });
   const bubbles = group(after);
@@ -395,6 +396,7 @@ test("Hebrew and English CSV exports preserve all source dates, times and identi
         getTaxaGroup: () => "other",
         translateGroupName: (name) => name,
         getSpeciesEnglishName: () => undefined,
+        getProfessionalTaxonomy: () => undefined,
         getObservationArea: () => null,
         translateArea: (name) => name,
         translateMonitoringAreaName: () => "",

@@ -16,6 +16,8 @@
     "test:taxonomy": "node --test tests/observation-taxonomy.test.mjs",
     "test:species-map": "node --test tests/species-map-filtering.test.mjs",
     "test:polygon": "node --test tests/drawn-polygon.test.mjs",
+    "test:merlin": "node --test tests/merlin-sync.test.mjs",
+    "audit:merlin": "node scripts/audit-merlin-sync.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {

@@ -2,6 +2,7 @@ import Papa from "papaparse";
 import {
   getSpeciesClassification,
   getTaxaGroup,
+  getProfessionalTaxonomy,
   translateGroupName,
   type Observation,
 } from "./observations-store";
@@ -65,7 +66,10 @@ export function exportObservations(
   );
   const rows = observations.map((o) => {
     const englishName =
-      lang === "en" ? getSpeciesEnglishName(o.scientific_name)?.trim() : undefined;
+      lang === "en"
+        ? getProfessionalTaxonomy(o)?.englishName ||
+          getSpeciesEnglishName(o.scientific_name)?.trim()
+        : undefined;
     const commonName = englishName && englishName !== "N/A" ? englishName : (o.common_name ?? "");
     const membership = observationMonitoringAreaIndex.get(o);
     const areaIds = membership ? Array.from(membership) : null;

@@ -22,8 +22,7 @@ import { useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { Observation } from "@/lib/observations-store";
 import { translateGroupName } from "@/lib/observations-store";
-import { classifySpecies } from "@/lib/species-registry";
-import { getTaxonDetails } from "@/lib/taxonomy-engine";
+import { getObservationTaxonDetails } from "@/lib/observations-store";
 
 function computeRow(records: Observation[]) {
   const observations = records.length;
@@ -48,10 +47,10 @@ function computeRow(records: Observation[]) {
   for (const r of records) {
     uniqueDates.add(r.observed_on);
     if (r.scientific_name) {
-      if (!getTaxonDetails(r.scientific_name).isGeneric) {
+      if (!getObservationTaxonDetails(r).isGeneric) {
         species.add(r.scientific_name);
       }
-      const status = classifySpecies(r.scientific_name);
+      const status = getObservationTaxonDetails(r).status;
       if (status === "invasive") {
         invasiveSpeciesSet.add(r.scientific_name);
       }

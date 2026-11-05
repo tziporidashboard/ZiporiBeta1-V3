@@ -379,7 +379,7 @@ test("Vertebrata remains a generic higher-level identification in the existing O
   assert.equal(taxonomy.getTaxonDetails(o.scientific_name).isGeneric, true);
   const summarize = evaluate(
     `return (deepDiveFiltered) => (${memo(speciesAst, "summary")})();`,
-    taxonomy,
+    store,
   );
   assert.deepEqual(summarize([o]), { rows: 1, observers: 1, species: 0, unidentified: 1 });
   assert.equal(store.getTaxaGroup(o), "other");

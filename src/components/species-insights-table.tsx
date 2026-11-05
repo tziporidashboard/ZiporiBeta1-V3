@@ -20,14 +20,19 @@
  * Called by: `@/components/species-deep-dive.tsx`.
  */
 import { useMemo } from "react";
-import { getTaxaGroup, type Observation, type TaxaGroupKey } from "@/lib/observations-store";
+import {
+  getTaxaGroup,
+  getProfessionalTaxonomy,
+  type Observation,
+  type TaxaGroupKey,
+} from "@/lib/observations-store";
 import { SPECIES_MAP } from "@/lib/species-dictionary";
 import { speciesMap } from "@/lib/species-map";
 import { useI18n, translateSeasonalStatus } from "@/lib/i18n";
 import { ArrowDownLeft, ArrowDownRight, ArrowUpLeft, ArrowUpRight, Minus } from "lucide-react";
 
 const CHIP_SPECIES_NAMES = new Set(
-  speciesMap.filter((entry) => !entry.isGeneric).map((entry) => entry.Scientific_Name)
+  speciesMap.filter((entry) => !entry.isGeneric).map((entry) => entry.Scientific_Name),
 );
 
 type SpeciesInsight = {
@@ -55,13 +60,22 @@ function getSeasonalStatus(records: Observation[]): string {
   return "סתיו";
 }
 
-export function getTopSpecies(data: Observation[], prioritySpecies: Set<string>, priorityCategory: TaxaGroupKey | null): SpeciesInsight[] {
+export function getTopSpecies(
+  data: Observation[],
+  prioritySpecies: Set<string>,
+  priorityCategory: TaxaGroupKey | null,
+): SpeciesInsight[] {
   const bySpecies = new Map<string, Observation[]>();
   for (const observation of data) {
     // Filter each record before grouping: a shared name does not imply a shared
     // category when historical classifications are intentionally preserved.
     if (priorityCategory && getTaxaGroup(observation) !== priorityCategory) continue;
-    if (!observation.scientific_name || !CHIP_SPECIES_NAMES.has(observation.scientific_name)) continue;
+    const professional = getProfessionalTaxonomy(observation);
+    if (
+      !observation.scientific_name ||
+      (professional ? professional.isGeneric : !CHIP_SPECIES_NAMES.has(observation.scientific_name))
+    )
+      continue;
     const records = bySpecies.get(observation.scientific_name) ?? [];
     records.push(observation);
     bySpecies.set(observation.scientific_name, records);
@@ -80,10 +94,19 @@ export function getTopSpecies(data: Observation[], prioritySpecies: Set<string>,
     const lastCount = annualEntries.at(-1)?.[1] ?? 0;
     const trend = lastCount > firstCount ? "up" : lastCount < firstCount ? "down" : "stable";
     const metadata = SPECIES_MAP.get(scientificName);
+    const professional = records.map(getProfessionalTaxonomy).find(Boolean);
     return {
       scientificName,
-      hebrewName: metadata?.Hebrew_Name && metadata.Hebrew_Name !== "N/A" ? metadata.Hebrew_Name : scientificName,
-      englishName: metadata?.English_Name && metadata.English_Name !== "N/A" ? metadata.English_Name : scientificName,
+      hebrewName:
+        professional?.name ||
+        (metadata?.Hebrew_Name && metadata.Hebrew_Name !== "N/A"
+          ? metadata.Hebrew_Name
+          : scientificName),
+      englishName:
+        professional?.englishName ||
+        (metadata?.English_Name && metadata.English_Name !== "N/A"
+          ? metadata.English_Name
+          : scientificName),
       observations: records.length,
       researchPct: (research / records.length) * 100,
       trend,
@@ -92,20 +115,40 @@ export function getTopSpecies(data: Observation[], prioritySpecies: Set<string>,
     };
   });
 
-  const byCount = (a: SpeciesInsight, b: SpeciesInsight) => b.observations - a.observations || a.hebrewName.localeCompare(b.hebrewName, "he");
-  const selected = insights.filter((insight) => prioritySpecies.has(insight.scientificName)).sort(byCount);
+  const byCount = (a: SpeciesInsight, b: SpeciesInsight) =>
+    b.observations - a.observations || a.hebrewName.localeCompare(b.hebrewName, "he");
+  const selected = insights
+    .filter((insight) => prioritySpecies.has(insight.scientificName))
+    .sort(byCount);
   const remaining = insights
     .filter((insight) => !prioritySpecies.has(insight.scientificName))
     .sort(byCount);
   return [...selected, ...remaining].slice(0, 5);
 }
 
-function TrendIcon({ trend, rtl, title }: { trend: SpeciesInsight["trend"]; rtl: boolean; title: string }) {
-  const icon = trend === "stable"
-    ? <Minus className="h-4 w-4 text-orange-500" strokeWidth={2.5} />
-    : trend === "up"
-      ? rtl ? <ArrowUpLeft className="h-4 w-4 text-emerald-600" strokeWidth={2.5} /> : <ArrowUpRight className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
-      : rtl ? <ArrowDownLeft className="h-4 w-4 text-rose-600" strokeWidth={2.5} /> : <ArrowDownRight className="h-4 w-4 text-rose-600" strokeWidth={2.5} />;
+function TrendIcon({
+  trend,
+  rtl,
+  title,
+}: {
+  trend: SpeciesInsight["trend"];
+  rtl: boolean;
+  title: string;
+}) {
+  const icon =
+    trend === "stable" ? (
+      <Minus className="h-4 w-4 text-orange-500" strokeWidth={2.5} />
+    ) : trend === "up" ? (
+      rtl ? (
+        <ArrowUpLeft className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
+      ) : (
+        <ArrowUpRight className="h-4 w-4 text-emerald-600" strokeWidth={2.5} />
+      )
+    ) : rtl ? (
+      <ArrowDownLeft className="h-4 w-4 text-rose-600" strokeWidth={2.5} />
+    ) : (
+      <ArrowDownRight className="h-4 w-4 text-rose-600" strokeWidth={2.5} />
+    );
   return <span title={title}>{icon}</span>;
 }
 
@@ -121,7 +164,7 @@ export function SpeciesInsightsTable({
   const { t, lang } = useI18n();
   const rows = useMemo(
     () => getTopSpecies(data, prioritySpecies, priorityCategory),
-    [data, prioritySpecies, priorityCategory]
+    [data, prioritySpecies, priorityCategory],
   );
 
   return (
@@ -138,12 +181,27 @@ export function SpeciesInsightsTable({
         </thead>
         <tbody className="h-[calc(100%-2rem)]">
           {rows.map((row) => (
-            <tr key={row.scientificName} className="h-1/5 border-b border-border/60 last:border-0 hover:bg-secondary/30">
-              <td className="truncate px-3 py-1 align-middle text-start font-medium">{lang === "he" ? row.hebrewName : row.englishName}</td>
-              <td className="px-2 py-1 text-center align-middle tabular-nums">{row.observations.toLocaleString()}</td>
-              <td className="px-2 py-1 text-center align-middle"><span className="inline-flex items-center justify-center"><TrendIcon trend={row.trend} rtl={lang === "he"} title={row.annualBreakdown} /></span></td>
-              <td className="px-2 py-1 text-center align-middle tabular-nums">{row.researchPct.toFixed(1)}%</td>
-              <td className="px-2 py-1 text-center align-middle">{translateSeasonalStatus(row.seasonalStatus, lang)}</td>
+            <tr
+              key={row.scientificName}
+              className="h-1/5 border-b border-border/60 last:border-0 hover:bg-secondary/30"
+            >
+              <td className="truncate px-3 py-1 align-middle text-start font-medium">
+                {lang === "he" ? row.hebrewName : row.englishName}
+              </td>
+              <td className="px-2 py-1 text-center align-middle tabular-nums">
+                {row.observations.toLocaleString()}
+              </td>
+              <td className="px-2 py-1 text-center align-middle">
+                <span className="inline-flex items-center justify-center">
+                  <TrendIcon trend={row.trend} rtl={lang === "he"} title={row.annualBreakdown} />
+                </span>
+              </td>
+              <td className="px-2 py-1 text-center align-middle tabular-nums">
+                {row.researchPct.toFixed(1)}%
+              </td>
+              <td className="px-2 py-1 text-center align-middle">
+                {translateSeasonalStatus(row.seasonalStatus, lang)}
+              </td>
             </tr>
           ))}
         </tbody>
