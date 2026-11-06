@@ -110,7 +110,7 @@ test("all iNaturalist records, communities, classifications and protected source
     // Only LF/CRLF are equivalent; content, whitespace and lone CR stay significant.
     const content = file === "public/MERLIN all observations for Zohar.csv"
       ? readMerlinHistory().toString("utf8")
-      : fs.readFileSync(file, "utf8");
+      : read(file);
     assert.ok(
       [content, content.replace(/\r\n/g, "\n"), content.replace(/\r?\n/g, "\r\n")]
         .some((candidate) => hash(candidate) === expected),
@@ -118,7 +118,7 @@ test("all iNaturalist records, communities, classifications and protected source
     );
   }
   assert.equal(
-    hash(fs.readFileSync(`public/${sync.MERLIN_SYNC_SOURCE.file_name}`)),
+    hash(read(`public/${sync.MERLIN_SYNC_SOURCE.file_name}`)),
     sync.MERLIN_SYNC_SOURCE.file_sha256,
   );
 });

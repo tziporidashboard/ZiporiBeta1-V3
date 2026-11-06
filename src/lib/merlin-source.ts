@@ -5,9 +5,10 @@ import { speciesMap } from "./species-map";
 
 /** Replace only after an offline comparison and review of missing source IDs. */
 export const MERLIN_SOURCE = {
-  file_name: "merlin-experts-2026-11-05.csv",
-  file_sha256: "3deb438394ea85a0296995c4ca6caad605f554bc7565d37ced2f965bffca8e43",
-  expected_rows: 2644,
+  // Shalom's revised export sent on 2026-11-06 at 18:48 (Asia/Jerusalem).
+  file_name: "merlin-experts-2026-11-06.csv",
+  file_sha256: "7d1d516e7a51b8fb7eaffc5a2ca71b76e57d19e89d1a6d714796d4bfc2ca6a34",
+  expected_rows: 3664,
   // Presentation order only: preserve the published CSV row order around the
   // separate iNaturalist additions. No values/records are read from the archive.
   previous_source_id_max: 114909,
@@ -37,16 +38,6 @@ export const MERLIN_COLUMNS = [
   "is_rare",
   "is_generic",
 ] as const;
-
-// Temporary, explicitly reviewed correction for this ID and this 0,0 value only.
-// The previous valid position is preserved pending clarification with Shalom.
-export const MERLIN_COORDINATE_CORRECTION = {
-  source_id: "ai4biodiversity.haifa.ac.il_113424",
-  rejected: [0, 0],
-  latitude: 32.74648,
-  longitude: 35.218938,
-  pending_clarification: true,
-} as const;
 
 type DateParser = (value: string, source: "inaturalist" | "merlin") => string;
 type TimeParser = (value: string) => string | undefined;
@@ -105,13 +96,8 @@ export function parseMerlinRows(
     )
       fail("invalid required field or classification");
 
-    let latitude = value(row.latitude) ? Number(row.latitude) : NaN;
-    let longitude = value(row.longitude) ? Number(row.longitude) : NaN;
-    const correction = MERLIN_COORDINATE_CORRECTION;
-    if (id === correction.source_id && latitude === 0 && longitude === 0) {
-      latitude = correction.latitude;
-      longitude = correction.longitude;
-    }
+    const latitude = value(row.latitude) ? Number(row.latitude) : NaN;
+    const longitude = value(row.longitude) ? Number(row.longitude) : NaN;
     if (!validCoordinates(latitude, longitude)) fail("invalid coordinates");
 
     // Keep the reviewed source-scoped policy; do not modify the shared dictionary.

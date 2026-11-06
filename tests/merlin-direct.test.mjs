@@ -11,175 +11,211 @@ import {
   tree,
   variable,
 } from "./helpers/observation-source.mjs";
-import { incoming, merlin, pipeline, runSync, store } from "./helpers/merlin-source.mjs";
+import { incoming as priorRaw, pipeline, runSync, store } from "./helpers/merlin-source.mjs";
 import { direct, loadDirectDashboard } from "./helpers/merlin-direct-source.mjs";
-import { readMerlinHistory } from "./helpers/merlin-history.mjs";
+import { readMerlinHistory, readPreviousMerlinSnapshot } from "./helpers/merlin-history.mjs";
 
-const removed = new Set(
-  ["114696", "114697", "114782"].map((id) => `expert_ai4biodiversity.haifa.ac.il_${id}`),
-);
-const previous = runSync().observations;
-const expected = previous.filter((o) => !removed.has(o.composite_id));
+const key = (id) => `expert_ai4biodiversity.haifa.ac.il_${id}`;
+const removed = new Set(["114696", "114697", "114782"].map(key));
+const corrected = key("113424");
+const baseline = runSync().observations.filter((o) => !removed.has(o.composite_id));
 const state = await loadDirectDashboard();
 const rows = state.observations;
-const experts = rows.filter((o) => o.source === "merlin");
 const byId = new Map(rows.map((o) => [o.composite_id, o]));
+const baselineIds = new Set(baseline.map((o) => o.composite_id));
+const added = rows.filter((o) => !baselineIds.has(o.composite_id));
+const experts = rows.filter((o) => o.source === "merlin");
+const incoming = Papa.parse(read(`public/${direct.MERLIN_SOURCE.file_name}`), {
+  header: true,
+  skipEmptyLines: true,
+}).data;
+const rawById = new Map(incoming.map((r) => [r.composite_id, r]));
 const ids = (data) => data.map((o) => o.composite_id);
-const count = (data, key) =>
-  Object.fromEntries([...Map.groupBy(data, key)].map(([k, v]) => [k, v.length]));
+const count = (data, fn) =>
+  Object.fromEntries([...Map.groupBy(data, fn)].map(([k, v]) => [k, v.length]));
 const hash = (data) => createHash("sha256").update(data).digest("hex");
 const parse = (data) =>
   direct.parseMerlinRows(data, pipeline.parseObservedOn, pipeline.parseObservedTime);
+// Compare every visible/raw field, excluding snapshot provenance and two unused
+// family/order fields that were already removed by the direct-loader release.
+function visible(o) {
+  if (o.source !== "merlin") return o;
+  const { iconic_taxon_name, taxon_order_name, professional_metadata, ...rest } = o;
+  return { ...rest, taxonomy: professional_metadata.taxonomy, raw: professional_metadata.values };
+}
+const unchangedBaseline = baseline.filter((o) => o.composite_id !== corrected);
+const unchangedIds = new Set(ids(unchangedBaseline));
+const unchangedCurrent = rows.filter((o) => unchangedIds.has(o.composite_id));
 const geo = JSON.parse(read("public/monitoring-areas.geojson"));
 const areas = loadProductionModule("src/lib/monitoring-areas.ts");
 const survey = loadProductionModule("src/lib/survey-polygons.ts");
 const quality = loadProductionModule("src/lib/quality-filter.ts");
 const index = areas.buildObservationMonitoringAreaIndex(rows, geo);
-const oldIndex = areas.buildObservationMonitoringAreaIndex(expected, geo);
+const oldIndex = areas.buildObservationMonitoringAreaIndex(baseline, geo);
 const memo = (ast, name) => variable(ast, name).initializer.arguments[0].getText(ast);
 
-test("current production loader fetches one MERLIN snapshot, loads 13,940 unique rows and preserves defaults/order", async () => {
+test("current loader loads 14,960 unique rows with correct source, year, observer and new-data totals", async () => {
   assert.deepEqual(state.errors, []);
   assert.equal(state.requests.length, 4);
   assert.equal(state.requests.filter((p) => p === `/${direct.MERLIN_SOURCE.file_name}`).length, 1);
-  assert.equal(rows.length, 13940);
-  assert.equal(new Set(ids(rows)).size, 13940);
-  assert.deepEqual(
-    ids(rows),
-    ids(expected),
-    "published row order is unchanged apart from the removed sessions",
-  );
+  assert.equal(rows.length, 14960);
+  assert.equal(new Set(ids(rows)).size, 14960);
+  assert.equal(added.length, 1020);
   assert.deepEqual(
     count(rows, (o) => o.source),
-    { inaturalist: 11296, merlin: 2644 },
+    { inaturalist: 11296, merlin: 3664 },
   );
   assert.deepEqual(
     count(experts, (o) => o.observed_on.slice(6)),
-    { 2024: 600, 2025: 1754, 2026: 290 },
+    { 2024: 600, 2025: 1754, 2026: 1310 },
   );
   assert.deepEqual(
     count(experts, (o) => o.user_login),
-    { "רחלי שוורץ-צחור": 771, "אסף בן-דוד": 455, "רע שיש": 1418 },
+    { "רחלי שוורץ-צחור": 771, "אסף בן-דוד": 455, "רע שיש": 2438 },
   );
+  assert.ok(
+    added.every(
+      (o) => o.source === "merlin" && o.user_login === "רע שיש" && o.observed_on.endsWith("2026"),
+    ),
+  );
+  assert.deepEqual(count(added, store.getTaxaGroup), { dragonflies: 501, birds: 519 });
+  assert.deepEqual(count(added, store.getSpeciesClassification), {
+    other_species: 903,
+    rare: 87,
+    invasive: 30,
+  });
   assert.equal(
-    [...state.counts.values()].reduce((a, b) => a + b, 0),
-    13940,
+    [...state.counts.values()].reduce((n, c) => n + c, 0),
+    14960,
   );
   assert.equal(
     state.stats.reduce((n, s) => n + s.totalObservations, 0),
-    13940,
+    14960,
   );
   assert.ok(state.filters.groups.has("expert") && state.filters.time.has("2026"));
   assert.deepEqual((await loadDirectDashboard()).observations, rows);
 });
 
-test("only the three approved empty sessions disappear; full 88-column archive stays byte-identical outside public", () => {
+test("all prior IDs remain, only 113424 coordinates change, iNaturalist is identical and empty sessions stay excluded", () => {
+  const changes = [];
+  for (const old of priorRaw) {
+    const current = rawById.get(old.composite_id);
+    assert.ok(current);
+    for (const field of Object.keys(old))
+      if (current[field] !== old[field])
+        changes.push([old.composite_id, field, old[field], current[field]]);
+  }
+  assert.deepEqual(changes, [
+    ["ai4biodiversity.haifa.ac.il_113424", "latitude", "0", "32.745815"],
+    ["ai4biodiversity.haifa.ac.il_113424", "longitude", "0", "35.221931"],
+  ]);
+  assert.deepEqual(ids(rows.filter((o) => baselineIds.has(o.composite_id))), ids(baseline));
+  assert.deepEqual(unchangedCurrent.map(visible), unchangedBaseline.map(visible));
   assert.deepEqual(
-    previous
-      .filter((o) => !byId.has(o.composite_id))
-      .map((o) => o.composite_id)
-      .sort(),
-    [...removed].sort(),
+    rows.filter((o) => o.source === "inaturalist"),
+    baseline.filter((o) => o.source === "inaturalist"),
   );
-  assert.ok(!fs.existsSync("public/MERLIN all observations for Zohar.csv"));
-  assert.equal(merlin.length, 2357);
-  assert.equal(Object.keys(merlin[0]).length, 88);
-  for (const id of removed) assert.ok(merlin.some((r) => `expert_${r.observationID}` === id));
+  for (const id of removed) assert.equal(byId.has(id), false);
+  const old = baseline.find((o) => o.composite_id === corrected),
+    current = byId.get(corrected);
+  assert.deepEqual(
+    {
+      ...visible(current),
+      latitude: old.latitude,
+      longitude: old.longitude,
+      raw: old.professional_metadata.values,
+    },
+    visible(old),
+  );
+});
+
+test("18:48 source is byte-exact; previous 22-column snapshot and full 88-column history remain recoverable", () => {
+  assert.equal(direct.MERLIN_SOURCE.expected_rows, 3664);
   assert.equal(
-    hash(readMerlinHistory()),
-    "42438b9a029b8ba81ff8625e7a28b8863adde48a70c69b5d30d3823981de8b75",
+    direct.MERLIN_SOURCE.file_sha256,
+    "7d1d516e7a51b8fb7eaffc5a2ca71b76e57d19e89d1a6d714796d4bfc2ca6a34",
   );
   assert.equal(
     hash(fs.readFileSync(`public/${direct.MERLIN_SOURCE.file_name}`)),
     direct.MERLIN_SOURCE.file_sha256,
   );
-  assert.deepEqual(readMerlinHistory({ fromGit: true }), readMerlinHistory());
-});
-
-test("all remaining observation fields are unchanged except unused legacy family/iconic metadata on MERLIN", () => {
-  const visible = (o) => {
-    if (o.source !== "merlin") return o;
-    const { iconic_taxon_name, taxon_order_name, ...kept } = o;
-    return kept;
-  };
-  assert.deepEqual(rows.map(visible), expected.map(visible));
-  assert.ok(experts.every((o) => o.iconic_taxon_name === "" && o.taxon_order_name === ""));
-  assert.deepEqual(
-    rows.filter((o) => o.source === "inaturalist"),
-    expected.filter((o) => o.source === "inaturalist"),
+  assert.equal(
+    hash(readPreviousMerlinSnapshot()),
+    "3deb438394ea85a0296995c4ca6caad605f554bc7565d37ced2f965bffca8e43",
   );
-  for (let i = 0; i < rows.length; i++) {
-    assert.equal(store.getTaxaGroup(rows[i]), store.getTaxaGroup(expected[i]));
-    assert.deepEqual(
-      store.getObservationTaxonDetails(rows[i]),
-      store.getObservationTaxonDetails(expected[i]),
-    );
-  }
+  assert.deepEqual(readPreviousMerlinSnapshot({ fromGit: true }), readPreviousMerlinSnapshot());
+  assert.equal(
+    hash(readMerlinHistory()),
+    "42438b9a029b8ba81ff8625e7a28b8863adde48a70c69b5d30d3823981de8b75",
+  );
+  assert.ok(!fs.existsSync("public/merlin-experts-2026-11-05.csv"));
+  assert.ok(!fs.existsSync("public/MERLIN all observations for Zohar.csv"));
 });
 
-test("every one of the 2,644 raw rows keeps its ID, original fields, source classifications and clock/date", () => {
+test("every source row retains names, classifications, raw metadata, date/time and coordinates", () => {
   assert.equal(experts.length, incoming.length);
   for (const raw of incoming) {
     const o = byId.get(`expert_${raw.composite_id}`);
-    assert.ok(o);
     assert.deepEqual(o.professional_metadata.values, raw);
+    assert.equal(o.professional_metadata.file_name, direct.MERLIN_SOURCE.file_name);
+    assert.equal(o.professional_metadata.file_sha256, direct.MERLIN_SOURCE.file_sha256);
     assert.equal(o.scientific_name, raw.scientific_name.trim());
     assert.equal(o.user_login, raw.user_name.trim());
     assert.equal(o.observed_on, pipeline.parseObservedOn(raw.observed_on, "merlin"));
     assert.equal(o.observed_time, pipeline.parseObservedTime(raw.observed_on));
-    assert.equal(store.getObservationTaxonDetails(o).category, raw.taxa_category_he);
+    assert.deepEqual([o.latitude, o.longitude], [+raw.latitude, +raw.longitude]);
+    const details = store.getObservationTaxonDetails(o);
+    assert.equal(details.name, raw.hebrew_name.trim() || raw.scientific_name.trim());
+    assert.equal(details.englishName, raw.english_name.trim());
+    assert.equal(details.category, raw.taxa_category_he);
     assert.equal(
-      store.getSpeciesClassification(o),
-      raw.is_invasive === "1" ? "invasive" : raw.is_rare === "1" ? "rare" : "other_species",
+      details.status,
+      raw.is_invasive === "1" ? "invasive" : raw.is_rare === "1" ? "rare" : "other",
     );
-    if (["Equus", "Orthetrum"].includes(o.scientific_name))
-      assert.equal(store.getObservationTaxonDetails(o).isGeneric, true);
   }
+  assert.ok(added.every((o) => !store.getObservationTaxonDetails(o).isGeneric));
+  assert.equal(experts.filter((o) => store.getObservationTaxonDetails(o).isGeneric).length, 8);
 });
 
-test("only ID 113424 with source 0,0 is corrected; no other position is invented", () => {
-  for (const raw of incoming) {
-    const o = byId.get(`expert_${raw.composite_id}`);
-    assert.ok(Number.isFinite(o.latitude) && Number.isFinite(o.longitude));
-    assert.ok(Math.abs(o.latitude) <= 90 && Math.abs(o.longitude) <= 180);
-    assert.ok(o.latitude !== 0 || o.longitude !== 0);
-    assert.deepEqual(
-      [o.latitude, o.longitude],
-      raw.composite_id.endsWith("_113424")
-        ? [32.74648, 35.218938]
-        : [+raw.latitude, +raw.longitude],
-    );
-  }
-  const raw = incoming.find((r) => r.composite_id.endsWith("_113424"));
+test("113424 uses the corrected source position directly and no longer accepts 0,0", () => {
+  const raw = rawById.get("ai4biodiversity.haifa.ac.il_113424"),
+    o = byId.get(corrected);
+  assert.deepEqual([o.latitude, o.longitude], [32.745815, 35.221931]);
+  assert.equal(direct.MERLIN_COORDINATE_CORRECTION, undefined);
+  assert.throws(() => parse([{ ...raw, latitude: "0", longitude: "0" }]), /coordinates/);
   assert.deepEqual(
     parse([{ ...raw, latitude: "32.8", longitude: "35.2" }]).map((o) => [o.latitude, o.longitude]),
     [[32.8, 35.2]],
   );
-  assert.throws(() => parse([{ ...incoming[0], latitude: "0", longitude: "0" }]), /coordinates/);
-  assert.throws(() => parse([{ ...raw, latitude: "91" }]), /coordinates/);
+  assert.ok(
+    experts.every(
+      (o) =>
+        Number.isFinite(o.latitude) &&
+        Number.isFinite(o.longitude) &&
+        Math.abs(o.latitude) <= 90 &&
+        Math.abs(o.longitude) <= 180 &&
+        !(o.latitude === 0 && o.longitude === 0),
+    ),
+  );
 });
 
-test("duplicate IDs and malformed rows/snapshots are rejected without fuzzy merging or historical fallback", async () => {
+test("invalid/duplicate/unreviewed sources fail atomically; different species at the same event stay distinct", async () => {
   assert.throws(() => parse([incoming[0], incoming[0]]), /duplicate/);
   for (const patch of [
     { composite_id: "" },
-    { observed_on: "2025-02-30 08:00:00" },
+    { observed_on: "2026-02-30 08:00:00" },
     { user_name: "", user_login: "" },
     { latitude: "" },
     { longitude: "Infinity" },
+    { latitude: "0", longitude: "0" },
     { is_rare: "1", is_invasive: "1" },
     { taxa_category_en: "invalid" },
-  ]) {
+  ])
     assert.throws(() => parse([{ ...incoming[0], ...patch }]), /Invalid MERLIN/);
-  }
-  assert.equal(
-    parse([incoming[0], incoming[1]]).length,
-    2,
-    "different species at one event remain separate",
-  );
+  assert.equal(parse([incoming[0], incoming[1]]).length, 2);
   for (const text of [
     "",
-    read("data-archive/merlin/2026-11-05/MERLIN all observations for Zohar.csv"),
+    readPreviousMerlinSnapshot().toString("utf8"),
     Papa.unparse(incoming.slice(1)),
     Papa.unparse([...incoming, incoming[0]]),
   ]) {
@@ -190,28 +226,31 @@ test("duplicate IDs and malformed rows/snapshots are rejected without fuzzy merg
   const failed = await loadDirectDashboard({ failSource: true });
   assert.equal(failed.observations, undefined);
   assert.equal(failed.errors.length, 1);
-  assert.ok(!failed.requests.some((p) => p.includes("Zohar") || p.includes("archive")));
 });
 
-test("map bubbles, observation details and every survey/monitoring membership equal the previous remaining rows", () => {
-  for (let i = 0; i < rows.length; i++)
-    assert.deepEqual(index.get(rows[i]), oldIndex.get(expected[i]));
+test("map counts/details cover all records; unchanged coordinates retain all memberships", () => {
+  for (const old of unchangedBaseline) {
+    const now = byId.get(old.composite_id);
+    assert.deepEqual(index.get(now), oldIndex.get(old));
+    assert.equal(
+      survey.getObservationArea(now.latitude, now.longitude),
+      survey.getObservationArea(old.latitude, old.longitude),
+    );
+  }
   const ast = tree(read("src/components/observation-map.tsx"));
-  const bubbles = evaluate(`return (data) => (${memo(ast, "bubbles")})();`, {
+  const bubbles = evaluate(`return(data)=>(${memo(ast, "bubbles")})();`, {
     ...store,
     ...loadProductionModule("src/lib/observation-taxonomy-overrides.ts"),
   });
-  assert.deepEqual(bubbles(rows), bubbles(expected));
+  assert.deepEqual(bubbles(unchangedCurrent), bubbles(unchangedBaseline));
   assert.equal(
     bubbles(rows).reduce((n, b) => n + b.count, 0),
-    13940,
+    14960,
   );
-  const details = evaluate(`return(data)=>(${memo(ast, "observationsMap")})();`)(rows);
-  assert.equal(details.size, 13940);
-  for (const id of removed) assert.equal(details.has(id), false);
+  assert.equal(evaluate(`return(data)=>(${memo(ast, "observationsMap")})();`)(rows).size, 14960);
 });
 
-test("all five filter pipelines preserve date, category, rarity, quality, area and drawn-polygon results", () => {
+test("five filtering pipelines preserve existing data and include new rows in all relevant filters", () => {
   const defaults = {
     drawnPolygon: null,
     dateRange: null,
@@ -229,8 +268,12 @@ test("all five filter pipelines preserve date, category, rarity, quality, area a
     ...store.TAXA_GROUP_KEYS.map((g) => ({ taxa: new Set([g]) })),
     ...["rare", "invasive", "other_species"].map((s) => ({ speciesTypes: new Set([s]) })),
     ...["2024", "2025", "2026"].map((y) => ({ time: new Map([[y, new Set()]]) })),
+    ...["04", "05", "07", "08", "09", "11"].map((m) => ({
+      time: new Map([["2026", new Set([m])]]),
+    })),
     ...["research", "needs_id", "casual"].map((q) => ({ qualityGrades: new Set([q]) })),
     ...geo.features.map((f) => ({ areas: new Set(), monitoringAreas: new Set([f.properties.id]) })),
+    ...survey.SURVEY_AREA_KEYS.map((a) => ({ areas: new Set([a]), monitoringAreas: new Set() })),
     {
       drawnPolygon: {
         type: "Polygon",
@@ -241,6 +284,20 @@ test("all five filter pipelines preserve date, category, rarity, quality, area a
             [35.2, 32.8],
             [35.1, 32.8],
             [35.1, 32.7],
+          ],
+        ],
+      },
+    },
+    {
+      drawnPolygon: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [35.221, 32.745],
+            [35.223, 32.745],
+            [35.223, 32.747],
+            [35.221, 32.747],
+            [35.221, 32.745],
           ],
         ],
       },
@@ -256,51 +313,91 @@ test("all five filter pipelines preserve date, category, rarity, quality, area a
     const ast = tree(read(`src/components/${file}`));
     const make = (membership) =>
       evaluate(
-        `${functionText(ast, "parseObsTimestamp")}
-      return(observations,filters)=>(${memo(ast, name)})();`,
+        `${functionText(ast, "parseObsTimestamp")}return(observations,filters)=>(${memo(ast, name)})();`,
         { ...store, ...areas, ...quality, observationMonitoringAreaIndex: membership },
       );
     const current = make(index),
       before = make(oldIndex);
     for (const patch of scenarios)
       assert.deepEqual(
-        ids(current(rows, { ...defaults, ...patch })),
-        ids(before(expected, { ...defaults, ...patch })),
+        ids(
+          current(rows, { ...defaults, ...patch }).filter((o) => unchangedIds.has(o.composite_id)),
+        ),
+        ids(before(unchangedBaseline, { ...defaults, ...patch })),
         name,
       );
+    assert.equal(current(rows, defaults).length, 14960);
+    assert.equal(
+      current(rows, { ...defaults, time: new Map([["2026", new Set()]]) }).filter(
+        (o) => o.source === "merlin",
+      ).length,
+      1310,
+    );
+    const source = (patch) => current(added, { ...defaults, ...patch });
+    assert.equal(source({ taxa: new Set(["birds"]) }).length, 519);
+    assert.equal(source({ taxa: new Set(["dragonflies"]) }).length, 501);
+    assert.equal(source({ speciesTypes: new Set(["rare"]) }).length, 87);
+    assert.equal(source({ speciesTypes: new Set(["invasive"]) }).length, 30);
+    assert.deepEqual(ids(current([byId.get(corrected)], { ...defaults, ...scenarios.at(-1) })), [
+      corrected,
+    ]);
+    assert.equal(
+      before([baseline.find((o) => o.composite_id === corrected)], {
+        ...defaults,
+        ...scenarios.at(-1),
+      }).length,
+      0,
+    );
   }
 });
 
-test("tables, species choices, counts and time-series stay identical after excluding the three sessions", () => {
+test("metrics, species choices and time-series include all new observations", () => {
   const metrics = tree(read("src/components/metrics-table.tsx"));
   const compute = evaluate(`${functionText(metrics, "computeRow")}return computeRow;`, store);
-  assert.deepEqual(compute(rows), compute(expected));
-  const insights = loadProductionModule("src/components/species-insights-table.tsx");
-  assert.deepEqual(
-    insights.getTopSpecies(rows, new Set(), null),
-    insights.getTopSpecies(expected, new Set(), null),
-  );
-  const species = tree(read("src/components/species-deep-dive.tsx"));
-  const summary = evaluate(`return(deepDiveFiltered)=>(${memo(species, "summary")})();`, store);
-  assert.deepEqual(summary(rows), summary(expected));
+  assert.deepEqual(compute(unchangedCurrent), compute(unchangedBaseline));
+  assert.equal(compute(rows).observations, 14960);
+  assert.equal(compute(experts).observations, 3664);
+  assert.equal(compute(added).distinctSpecies, 99);
+  const deep = tree(read("src/components/species-deep-dive.tsx"));
+  const speciesMap = loadProductionModule("src/lib/species-map.ts").speciesMap;
+  const choices = evaluate(`return(observations)=>(${memo(deep, "groupedSpecies")})();`, {
+    ...store,
+    ...loadProductionModule("src/lib/observation-taxonomy-overrides.ts"),
+    speciesMap,
+    categories: store.TAXA_GROUP_KEYS,
+  })(rows);
+  for (const o of added)
+    assert.ok(choices[store.getTaxaGroup(o)].some((s) => s.Scientific_Name === o.scientific_name));
+  const summary = evaluate(`return(deepDiveFiltered)=>(${memo(deep, "summary")})();`, store);
+  assert.deepEqual(summary(added), { rows: 1020, observers: 1, species: 99, unidentified: 0 });
   const chart = tree(read("src/components/time-series-chart.tsx"));
   const counts = evaluate(
     `return(data)=>(${memo(chart, "{ rawCounts, allSortKeys, allGroups }")})();`,
-    {
-      lang: "en",
-      translateMonth: String,
-      PROFESSIONAL_MONITORING_KEY: "expert",
-    },
+    { lang: "en", translateMonth: String, PROFESSIONAL_MONITORING_KEY: "expert" },
+  )(rows);
+  assert.equal(
+    [...counts.rawCounts.values()].reduce(
+      (s, m) => s + [...m.counts.values()].reduce((a, n) => a + n, 0),
+      0,
+    ),
+    14960,
   );
-  assert.deepEqual(counts(rows), counts(expected));
+  assert.equal(
+    [...counts.rawCounts.values()].reduce((s, m) => s + (m.counts.get("expert") ?? 0), 0),
+    3664,
+  );
+  const insights = loadProductionModule("src/components/species-insights-table.tsx");
+  assert.deepEqual(
+    insights.getTopSpecies(unchangedCurrent, new Set(), null),
+    insights.getTopSpecies(unchangedBaseline, new Set(), null),
+  );
 });
 
-test("every cell and row order in Hebrew and English CSV exports matches the previous export minus only three IDs", async () => {
+test("both CSV languages preserve all prior rows except 113424 and export exact source names and coordinates", async () => {
   let blob;
   const ast = tree(read("src/lib/export-observations.ts"));
-  const exportRows = evaluate(
-    `const ${variable(ast, "ENGLISH_HEADERS").getText(ast)};
-    ${functionText(ast, "exportObservations")}return exportObservations;`,
+  const exporter = evaluate(
+    `const ${variable(ast, "ENGLISH_HEADERS").getText(ast)};${functionText(ast, "exportObservations")}return exportObservations;`,
     {
       ...store,
       ...areas,
@@ -309,30 +406,53 @@ test("every cell and row order in Hebrew and English CSV exports matches the pre
       ...loadProductionModule("src/lib/i18n.tsx"),
       Papa,
       Blob,
-      URL: {
-        createObjectURL: (b) => {
-          blob = b;
-          return "blob:test";
-        },
-        revokeObjectURL() {},
-      },
+      URL: { createObjectURL: (b) => ((blob = b), "blob:test"), revokeObjectURL() {} },
       document: { createElement: () => ({ click() {}, remove() {} }), body: { appendChild() {} } },
       setTimeout: (f) => f(),
     },
   );
   for (const lang of ["he", "en"]) {
-    exportRows(expected, geo, oldIndex, lang);
-    const before = await blob.text();
-    exportRows(rows, geo, index, lang);
-    assert.equal(await blob.text(), before);
+    exporter(baseline, geo, oldIndex, lang);
+    const before = Papa.parse(await blob.text(), { header: true }).data;
+    exporter(rows, geo, index, lang);
+    const after = Papa.parse(await blob.text(), { header: true }).data;
+    const id = lang === "he" ? "מזהה תצפית" : "Observation ID";
+    const lat = lang === "he" ? "קו רוחב" : "Latitude",
+      lon = lang === "he" ? "קו אורך" : "Longitude";
+    const common = lang === "he" ? "שם נפוץ" : "Common Name";
+    assert.equal(after.length, 14960);
+    assert.equal(Object.keys(after[0]).length, 18);
+    assert.deepEqual(
+      after.filter((o) => unchangedIds.has(o[id])),
+      before.filter((o) => unchangedIds.has(o[id])),
+    );
+    for (const row of after.filter((r) => r.Source === "MERLIN" || r["מקור"] === "MERLIN")) {
+      const o = byId.get(row[id]);
+      assert.equal(+row[lat], o.latitude);
+      assert.equal(+row[lon], o.longitude);
+      assert.equal(
+        row[common],
+        lang === "he" ? o.common_name : o.professional_metadata.taxonomy.englishName,
+      );
+    }
+    const fixed = after.find((r) => r[id] === corrected);
+    assert.equal(+fixed[lat], 32.745815);
+    assert.equal(+fixed[lon], 35.221931);
   }
 });
 
-test("active source code contains no archive/synchronization imports or legacy row transformation", () => {
-  const source = read("src/lib/observations-store.tsx");
+test("active code has no archive, old-snapshot or temporary coordinate-correction dependency", () => {
   assert.doesNotMatch(
-    source,
+    read("src/lib/observations-store.tsx"),
     /MERLIN all observations|synchronizeMerlin|MERLIN_SYNC|parseMerlinRow|data-archive/,
   );
-  assert.ok(!fs.existsSync("src/lib/merlin-sync.ts"));
+  assert.doesNotMatch(
+    read("src/lib/merlin-source.ts"),
+    /MERLIN_COORDINATE_CORRECTION|113424|32\.74648|35\.218938/,
+  );
+  assert.ok(
+    !state.requests.some(
+      (p) => p.includes("2026-11-05") || p.includes("Zohar") || p.includes("archive"),
+    ),
+  );
 });

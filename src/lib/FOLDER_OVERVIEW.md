@@ -58,20 +58,23 @@ lat/lng are silently dropped.
 | `id` | no | Becomes `composite_id: "inat_<id>"` — used as the React/map key and to look up full detail in the map sidebar. |
 | `url` | no | `Observation.source_url` — "View on iNaturalist" link. |
 
-### 3. `public/merlin-experts-2026-11-05.csv` (professional monitoring)
-The single active MERLIN source contains 2,644 rows and 22 columns.
+### 3. `public/merlin-experts-2026-11-06.csv` (professional monitoring)
+The single active MERLIN source contains 3,664 rows and 22 columns, from Shalom's
+revised export received on November 6, 2026 at 18:48 (Asia/Jerusalem).
 `merlin-source.ts` validates the schema, row count and unique source IDs, parses
 ISO calendar dates and recorded times, and preserves source names/classifications
 in observation-scoped metadata. Generic/genus identifications retain the reviewed
 policy. Shared dictionaries and iNaturalist classifications are unchanged.
 
-Only source ID 113424 with coordinates 0,0 receives the explicitly approved
-position 32.74648,35.218938, pending clarification with Shalom. No other locations
-are corrected. The fixed previous ID boundary is used only to preserve CSV row
+Source ID 113424 now provides the corrected position 32.745815,35.221931 directly.
+There is no temporary coordinate override; 0,0 is rejected for every source ID.
+The fixed previous ID boundary is used only to preserve CSV row
 order around the separate iNaturalist additions; it is not a merge or deletion rule.
 
 The former 88-column CSV lives in `data-archive/merlin/2026-11-05/`. Neither it nor
 the archived synchronization code participates in the application bundle/loading.
+The previous 2,644-row snapshot and loader are backed up locally in
+`data-archive/merlin/2026-11-06-before-rea/`, outside public assets and ignored by Git.
 An unavailable or invalid active snapshot fails the load explicitly, without
 silently reverting to historical data or dropping individual records. Future
 snapshot changes require offline ID comparison and review of missing observations.

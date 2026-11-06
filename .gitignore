@@ -39,3 +39,5 @@ dist-ssr
 
 # Detailed reconciliation reports remain local; regenerate with audit:merlin.
 /docs/merlin-direct-2026-11-06/comparison.json
+
+/docs/merlin-rea-2026-11-06/comparison.json

@@ -1,124 +1,171 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import Papa from "papaparse";
 import { loadProductionModule, read } from "../tests/helpers/observation-source.mjs";
-import { runSync, merlin, store } from "../tests/helpers/merlin-source.mjs";
-import { loadDirectDashboard } from "../tests/helpers/merlin-direct-source.mjs";
-import { readMerlinHistory } from "../tests/helpers/merlin-history.mjs";
+import { runSync, incoming as previousRaw, store } from "../tests/helpers/merlin-source.mjs";
+import { direct, loadDirectDashboard } from "../tests/helpers/merlin-direct-source.mjs";
+import { readMerlinHistory, readPreviousMerlinSnapshot } from "../tests/helpers/merlin-history.mjs";
 
-const before = runSync();
+const hash = (b) => createHash("sha256").update(b).digest("hex");
+const count = (data, fn) =>
+  Object.fromEntries([...Map.groupBy(data, fn)].map(([k, v]) => [k, v.length]));
+const omitted = new Set(
+  ["114696", "114697", "114782"].map((id) => `expert_ai4biodiversity.haifa.ac.il_${id}`),
+);
+const fixedId = "expert_ai4biodiversity.haifa.ac.il_113424";
+const synchronized = runSync();
+const before = synchronized.observations.filter((o) => !omitted.has(o.composite_id));
 const after = await loadDirectDashboard();
 assert.deepEqual(after.errors, []);
-const rows = after.observations;
-const ids = new Set(rows.map((o) => o.composite_id));
-const removed = before.observations.filter((o) => !ids.has(o.composite_id));
-assert.deepEqual(removed.map((o) => o.composite_id.split("_").at(-1)).sort(), [
-  "114696",
-  "114697",
-  "114782",
+const rows = after.observations,
+  byId = new Map(rows.map((o) => [o.composite_id, o]));
+const oldIds = new Set(before.map((o) => o.composite_id));
+const added = rows.filter((o) => !oldIds.has(o.composite_id));
+const incoming = Papa.parse(read(`public/${direct.MERLIN_SOURCE.file_name}`), {
+  header: true,
+  skipEmptyLines: true,
+}).data;
+const rawById = new Map(incoming.map((r) => [r.composite_id, r]));
+const changes = previousRaw.flatMap((old) => {
+  const current = rawById.get(old.composite_id);
+  assert.ok(current, `Missing historical ID ${old.composite_id}`);
+  const fields = Object.keys(old).filter((k) => old[k] !== current[k]);
+  return fields.length
+    ? [
+        {
+          id: old.composite_id,
+          changes: fields.map((field) => ({ field, old: old[field], new: current[field] })),
+        },
+      ]
+    : [];
+});
+assert.deepEqual(changes, [
+  {
+    id: "ai4biodiversity.haifa.ac.il_113424",
+    changes: [
+      { field: "latitude", old: "0", new: "32.745815" },
+      { field: "longitude", old: "0", new: "35.221931" },
+    ],
+  },
 ]);
-const expected = before.observations.filter((o) => ids.has(o.composite_id));
 const visible = (o) => {
   if (o.source !== "merlin") return o;
-  const { iconic_taxon_name, taxon_order_name, ...retained } = o;
-  return retained;
+  const { iconic_taxon_name, taxon_order_name, professional_metadata, ...rest } = o;
+  return { ...rest, taxonomy: professional_metadata.taxonomy, raw: professional_metadata.values };
 };
-assert.deepEqual(rows.map(visible), expected.map(visible));
-const count = (data, f) =>
-  Object.fromEntries([...Map.groupBy(data, f)].map(([k, v]) => [k, v.length]));
-const hash = (b) => createHash("sha256").update(b).digest("hex");
-const experts = rows.filter((o) => o.source === "merlin");
-const inat = rows.filter((o) => o.source === "inaturalist");
+for (const old of before)
+  if (old.composite_id !== fixedId)
+    assert.deepEqual(visible(byId.get(old.composite_id)), visible(old));
+const inat = rows.filter((o) => o.source === "inaturalist"),
+  experts = rows.filter((o) => o.source === "merlin");
 assert.deepEqual(
   inat,
-  before.observations.filter((o) => o.source === "inaturalist"),
+  before.filter((o) => o.source === "inaturalist"),
 );
+assert.equal(rows.length, 14960);
+assert.equal(byId.size, 14960);
+assert.equal(added.length, 1020);
 const geo = JSON.parse(read("public/monitoring-areas.geojson"));
-const areas = loadProductionModule("src/lib/monitoring-areas.ts");
+const areas = loadProductionModule("src/lib/monitoring-areas.ts"),
+  survey = loadProductionModule("src/lib/survey-polygons.ts");
+const index = areas.buildObservationMonitoringAreaIndex(rows, geo),
+  oldIndex = areas.buildObservationMonitoringAreaIndex(before, geo);
+const oldFixed = before.find((o) => o.composite_id === fixedId),
+  newFixed = byId.get(fixedId);
 let blob;
-globalThis.URL = {
-  createObjectURL: (b) => {
-    blob = b;
-    return "blob:audit";
-  },
-  revokeObjectURL() {},
-};
+globalThis.URL = { createObjectURL: (b) => ((blob = b), "blob:audit"), revokeObjectURL() {} };
 globalThis.document = {
   createElement: () => ({ click() {}, remove() {} }),
   body: { appendChild() {} },
 };
 const exportRows = loadProductionModule("src/lib/export-observations.ts").exportObservations;
-const exportHashes = {};
+const csvChecks = {};
 for (const lang of ["he", "en"]) {
-  exportRows(expected, geo, areas.buildObservationMonitoringAreaIndex(expected, geo), lang);
-  const prior = await blob.text();
-  exportRows(rows, geo, areas.buildObservationMonitoringAreaIndex(rows, geo), lang);
-  assert.equal(await blob.text(), prior);
-  exportHashes[lang] = hash(prior);
+  exportRows(before, geo, oldIndex, lang);
+  const prior = Papa.parse(await blob.text(), { header: true }).data;
+  exportRows(rows, geo, index, lang);
+  const text = await blob.text(),
+    current = Papa.parse(text, { header: true }).data;
+  const id = lang === "he" ? "מזהה תצפית" : "Observation ID";
+  assert.deepEqual(
+    current.filter((r) => oldIds.has(r[id]) && r[id] !== fixedId),
+    prior.filter((r) => r[id] !== fixedId),
+  );
+  assert.equal(current.length, 14960);
+  csvChecks[lang] = {
+    rows: current.length,
+    columns: Object.keys(current[0]).length,
+    unchanged_prior_rows: prior.length - 1,
+    sha256: hash(text),
+  };
 }
-const archivePath = "data-archive/merlin/2026-11-05/MERLIN all observations for Zohar.csv";
+const pending = [
+  ...new Set(
+    synchronized.exceptions
+      .filter(
+        (e) =>
+          e.requires_clarification &&
+          byId.has(`expert_${e.observation_id}`) &&
+          `expert_${e.observation_id}` !== fixedId,
+      )
+      .map((e) => e.observation_id),
+  ),
+];
 const report = {
-  before: { total: before.observations.length, merlin: 2647, inaturalist: 11296 },
+  source: {
+    ...direct.MERLIN_SOURCE,
+    received_at: "2026-11-06T18:48:09+02:00",
+    bytes: fs.statSync(`public/${direct.MERLIN_SOURCE.file_name}`).size,
+  },
+  before: { total: before.length, merlin: previousRaw.length, inaturalist: 11296 },
   after: {
     total: rows.length,
-    unique_ids: ids.size,
+    unique_ids: byId.size,
     merlin: experts.length,
     inaturalist: inat.length,
   },
+  comparison: {
+    added: added.length,
+    unchanged_prior_merlin: previousRaw.length - changes.length,
+    updated_prior_merlin: changes.length,
+    missing: 0,
+    changes,
+  },
+  previous_same_day_export: {
+    sha256: "69f58e6da8a883b5002b93e9cc28d691ef6a36f3431098f6446c5a785c4b1d21",
+    rows: 3664,
+    only_difference: changes,
+  },
   requested_urls: after.requests,
-  removed: removed.map((o) => ({
-    id: o.composite_id,
-    date: o.observed_on,
-    observer: o.user_login,
-    historical_count: merlin.find((r) => `expert_${r.observationID}` === o.composite_id).count,
-    reason: "Explicitly approved removal of the three empty sessions; retained in full archive",
-  })),
-  unchanged_visible_rows: expected.length,
-  identical_csv_including_row_order: exportHashes,
+  years: count(experts, (o) => o.observed_on.slice(6)),
+  monitors: count(experts, (o) => o.user_login),
+  categories: count(experts, store.getTaxaGroup),
+  statuses: count(experts, store.getSpeciesClassification),
+  coordinate_113424: {
+    old_temporary: [oldFixed.latitude, oldFixed.longitude],
+    current_source: [newFixed.latitude, newFixed.longitude],
+    temporary_override_removed: true,
+    survey_before: survey.getObservationArea(oldFixed.latitude, oldFixed.longitude),
+    survey_after: survey.getObservationArea(newFixed.latitude, newFixed.longitude),
+    monitoring_before: [...oldIndex.get(oldFixed)],
+    monitoring_after: [...index.get(newFixed)],
+  },
+  empty_sessions_absent: [...omitted].every((id) => !byId.has(id)),
   inaturalist_sha256: hash(JSON.stringify(inat)),
-  professional_years: count(experts, (o) => o.observed_on.slice(6)),
-  professional_monitors: count(experts, (o) => o.user_login),
-  professional_categories: count(experts, store.getTaxaGroup),
-  professional_status: count(experts, store.getSpeciesClassification),
-  historical_fields_no_longer_in_active_merlin: ["iconic_taxon_name", "taxon_order_name"],
-  historical_fields_required_by_active_merlin_views: [],
-  coordinate_correction: {
-    id: "113424",
-    source: [0, 0],
-    active: [32.74648, 35.218938],
-    pending_shalom: true,
+  csv_checks: csvChecks,
+  previous_professional_review_remaining: pending,
+  previous_snapshot_backup: {
+    path: "data-archive/merlin/2026-11-06-before-rea/merlin-experts-2026-11-05.csv",
+    sha256: hash(readPreviousMerlinSnapshot()),
   },
-  pending_source_ids: [
-    ...new Set(
-      before.exceptions
-        .filter((e) => e.requires_clarification && ids.has(`expert_${e.observation_id}`))
-        .map((e) => e.observation_id),
-    ),
-  ],
-  archive: {
-    path: archivePath,
-    rows: merlin.length,
-    columns: Object.keys(merlin[0]).length,
-    bytes: readMerlinHistory().length,
-    sha256: hash(readMerlinHistory()),
-    served_from_public: false,
-  },
+  full_88_column_history_sha256: hash(readMerlinHistory()),
 };
 assert.equal(
-  report.archive.sha256,
-  "42438b9a029b8ba81ff8625e7a28b8863adde48a70c69b5d30d3823981de8b75",
+  hash(fs.readFileSync(`public/${direct.MERLIN_SOURCE.file_name}`)),
+  direct.MERLIN_SOURCE.file_sha256,
 );
-const output = "docs/merlin-direct-2026-11-06";
+const output = "docs/merlin-rea-2026-11-06";
 fs.mkdirSync(output, { recursive: true });
 fs.writeFileSync(`${output}/comparison.json`, JSON.stringify(report, null, 2) + "\n");
-console.log(
-  JSON.stringify({
-    before: report.before,
-    after: report.after,
-    years: report.professional_years,
-    monitors: report.professional_monitors,
-    pending_clarification: report.pending_source_ids.length,
-    identical_csv_including_row_order: true,
-    archive_sha256: report.archive.sha256,
-  }),
-);
+console.log(JSON.stringify(report, null, 2));

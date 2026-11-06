@@ -4,13 +4,20 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { MERLIN_ARCHIVE_PATH, readMerlinHistory } from "./merlin-history.mjs";
+import {
+  MERLIN_ARCHIVE_PATH,
+  PREVIOUS_MERLIN_SNAPSHOT_PATH,
+  readMerlinHistory,
+  readPreviousMerlinSnapshot,
+} from "./merlin-history.mjs";
 
 export const root = fileURLToPath(new URL("../../", import.meta.url));
 export const read = (file) =>
   file === MERLIN_ARCHIVE_PATH
     ? readMerlinHistory().toString("utf8")
-    : readFileSync(resolve(root, file), "utf8");
+    : file === PREVIOUS_MERLIN_SNAPSHOT_PATH
+      ? readPreviousMerlinSnapshot().toString("utf8")
+      : readFileSync(resolve(root, file), "utf8");
 export const tree = (source) =>
   ts.createSourceFile("source.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const compilerOptions = {
