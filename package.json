@@ -16,9 +16,10 @@
     "test:taxonomy": "node --test tests/observation-taxonomy.test.mjs",
     "test:species-map": "node --test tests/species-map-filtering.test.mjs",
     "test:polygon": "node --test tests/drawn-polygon.test.mjs",
-    "test:merlin": "node --test tests/merlin-sync.test.mjs",
-    "audit:merlin": "node scripts/audit-merlin-sync.mjs",
-    "format": "prettier --write ."
+    "test:merlin": "node --test --test-concurrency=1 tests/merlin-direct.test.mjs tests/merlin-sync.test.mjs",
+    "audit:merlin": "node scripts/audit-merlin-direct.mjs",
+    "format": "prettier --write .",
+    "audit:merlin:archive": "node scripts/audit-merlin-sync.mjs"
   },
   "dependencies": {
     "@changey/react-leaflet-markercluster": "^4.0.0-rc1",

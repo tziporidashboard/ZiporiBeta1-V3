@@ -27,7 +27,7 @@ const pipeline = loadPipeline(read("src/lib/observations-store.tsx"));
 const csv = (path) => Papa.parse(read(path), { header: true, skipEmptyLines: true }).data;
 const historical = pipeline.load(
   csv("public/Until_June26.csv"),
-  csv("public/MERLIN all observations for Zohar.csv"),
+  csv("data-archive/merlin/2026-11-05/MERLIN all observations for Zohar.csv"),
   new Map(csv("public/user_groups.csv").map((r) => [r.user_login, r.group])),
 );
 const batch = JSON.parse(read("public/inaturalist-september-2026-additions.json"));

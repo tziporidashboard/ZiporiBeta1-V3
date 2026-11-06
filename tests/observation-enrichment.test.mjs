@@ -32,7 +32,7 @@ function csv(file) {
 }
 
 const inat = csv("public/Until_June26.csv");
-const merlin = csv("public/MERLIN all observations for Zohar.csv");
+const merlin = csv("data-archive/merlin/2026-11-05/MERLIN all observations for Zohar.csv");
 const users = new Map(csv("public/user_groups.csv").map((row) => [row.user_login, row.group]));
 const before = loadPipeline(
   execFileSync("git", ["show", `${baselineCommit}:${storePath}`], {

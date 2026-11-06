@@ -27,7 +27,7 @@ const rawInat = csv("public/Until_June26.csv");
 const userGroups = new Map(csv("public/user_groups.csv").map((r) => [r.user_login, r.group]));
 const observations = loadPipeline(read("src/lib/observations-store.tsx")).load(
   rawInat,
-  csv("public/MERLIN all observations for Zohar.csv"),
+  csv("data-archive/merlin/2026-11-05/MERLIN all observations for Zohar.csv"),
   userGroups,
 );
 // Expected membership is derived independently from the unchanged source files.

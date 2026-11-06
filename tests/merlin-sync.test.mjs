@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import Papa from "papaparse";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
+import { readMerlinHistory } from "./helpers/merlin-history.mjs";
 import {
   evaluate,
   functionText,
@@ -46,7 +47,7 @@ const inat = observations.filter((o) => o.source === "inaturalist");
 const sourceById = new Map(incoming.map((r) => [`expert_${r.composite_id}`, r]));
 const key = (suffix) => `expert_ai4biodiversity.haifa.ac.il_${suffix}`;
 
-test("enabled production loader loads 13,943 unique records, exact source/observer/year totals and all defaults", async () => {
+test("archived synchronized loader loads 13,943 unique records, exact source/observer/year totals and all defaults", async () => {
   const state = await loadDashboard();
   assert.deepEqual(state.errors, []);
   assert.equal(state.requests.length, 5);
@@ -107,7 +108,9 @@ test("all iNaturalist records, communities, classifications and protected source
   for (const [file, expected] of Object.entries(baseline.files)) {
     // Preserve the approved hashes across Windows and Linux Git checkouts.
     // Only LF/CRLF are equivalent; content, whitespace and lone CR stay significant.
-    const content = fs.readFileSync(file, "utf8");
+    const content = file === "public/MERLIN all observations for Zohar.csv"
+      ? readMerlinHistory().toString("utf8")
+      : fs.readFileSync(file, "utf8");
     assert.ok(
       [content, content.replace(/\r\n/g, "\n"), content.replace(/\r?\n/g, "\r\n")]
         .some((candidate) => hash(candidate) === expected),

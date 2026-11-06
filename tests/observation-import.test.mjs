@@ -17,7 +17,7 @@ const dataPath = "public/inaturalist-september-2026-additions.json";
 const batch = JSON.parse(read(dataPath));
 const storePath = "src/lib/observations-store.tsx";
 const source = read(storePath);
-const storeAst = tree(source);
+const storeAst = tree(read("tests/fixtures/merlin-synchronized-store.tsx.txt"));
 const store = loadProductionModule(storePath);
 const quality = loadProductionModule("src/lib/quality-filter.ts");
 const areas = loadProductionModule("src/lib/monitoring-areas.ts");
@@ -32,7 +32,7 @@ const csv = (path) => {
   return result.data;
 };
 const inat = csv("public/Until_June26.csv");
-const merlin = csv("public/MERLIN all observations for Zohar.csv");
+const merlin = csv("data-archive/merlin/2026-11-05/MERLIN all observations for Zohar.csv");
 const users = new Map(csv("public/user_groups.csv").map((row) => [row.user_login, row.group]));
 const pipeline = loadPipeline(source);
 const historical = pipeline.load(inat, merlin, users);
@@ -53,14 +53,14 @@ const countBy = (rows, key) => {
 };
 const memo = (ast, name) => variable(ast, name).initializer.arguments[0].getText(ast);
 
-// Execute the complete production loader (not a test-only reconstruction of its
-// merge). Supply the exact public assets through a local fetch adapter.
+// The archived loader isolates the original iNaturalist import contract.
+// merlin-direct.test.mjs executes the current complete production loader.
 const requests = [];
 const state = {};
 const assets = {
   "/user_groups.csv": "public/user_groups.csv",
   "/Until_June26.csv": "public/Until_June26.csv",
-  "/MERLIN all observations for Zohar.csv": "public/MERLIN all observations for Zohar.csv",
+  "/MERLIN all observations for Zohar.csv": "data-archive/merlin/2026-11-05/MERLIN all observations for Zohar.csv",
   "/inaturalist-september-2026-additions.json": dataPath,
 };
 const loader = evaluate(
@@ -74,8 +74,8 @@ const loader = evaluate(
   {
     ...enrichment,
     appendInaturalistAdditions,
-    // Exercise the documented rollback path and retain the independent 2026-09
-    // import guarantees. merlin-sync.test.mjs exercises the enabled full loader.
+    // Retain the independent 2026-09 import guarantees with the archived loader.
+    // merlin-direct.test.mjs exercises today's complete active loader.
     MERLIN_SYNC_ENABLED: false,
     Papa,
     console: { log() {}, error: (...args) => assert.fail(args.join(" ")) },

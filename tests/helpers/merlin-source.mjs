@@ -10,14 +10,15 @@ import {
   variable,
 } from "./observation-source.mjs";
 
-export const sync = loadProductionModule("src/lib/merlin-sync.ts");
+// Frozen previous implementation, used only for offline comparisons and audits.
+export const sync = loadProductionModule("tests/fixtures/merlin-sync.ts");
 export const store = loadProductionModule("src/lib/observations-store.tsx");
 export const csv = (file) => {
   const result = Papa.parse(read(file), { header: true, skipEmptyLines: true });
   assert.deepEqual(result.errors, []);
   return result.data;
 };
-export const merlin = csv("public/MERLIN all observations for Zohar.csv");
+export const merlin = csv("data-archive/merlin/2026-11-05/MERLIN all observations for Zohar.csv");
 export const incoming = csv(`public/${sync.MERLIN_SYNC_SOURCE.file_name}`);
 export const pipeline = loadPipeline(read("src/lib/observations-store.tsx"));
 export const historical = loadProductionModule(
@@ -35,12 +36,12 @@ export const historical = loadProductionModule(
 export const runSync = (previous = historical, rows = incoming) =>
   sync.synchronizeMerlin(previous, rows, pipeline.parseObservedOn, pipeline.parseObservedTime);
 
-/** Execute the actual React effect body with local assets, no browser/network. */
+/** Execute the archived React effect for before/after regression comparisons. */
 export async function loadDashboard({
   enabled = sync.MERLIN_SYNC_ENABLED,
   failSnapshot = false,
 } = {}) {
-  const ast = tree(read("src/lib/observations-store.tsx"));
+  const ast = tree(read("tests/fixtures/merlin-synchronized-store.tsx.txt"));
   const state = { requests: [], errors: [] };
   const loader = evaluate(
     `
@@ -67,7 +68,12 @@ export async function loadDashboard({
         );
         return {
           ok: !(failSnapshot && url === `/${sync.MERLIN_SYNC_SOURCE.file_name}`),
-          text: async () => read(`public${url}`),
+          text: async () =>
+            read(
+              url === "/MERLIN all observations for Zohar.csv"
+                ? "data-archive/merlin/2026-11-05/MERLIN all observations for Zohar.csv"
+                : `public${url}`,
+            ),
           json: async () => JSON.parse(read(`public${url}`)),
         };
       },

@@ -14,18 +14,13 @@
  *      `quality_grade`, `iconic_taxon_name`, `scientific_name`,
  *      `taxon_order_name`, `id`, `establishment_means`, `url`, etc.).
  *      Rows with unparseable dates or coordinates are dropped.
- *   3. Fetches `/MERLIN all observations for Zohar.csv` — expert-recorded
- *      observations (parsed via `parseMerlinRow`), merged with the
- *      iNaturalist rows into one combined `observations` array.
- *      Appends `/inaturalist-september-2026-additions.json` by original
- *      iNaturalist ID, using observation-level Excel groups for new rows only.
- *   4. Replays the dated MERLIN_SYNC_SOURCES snapshots by stable source ID.
- *      Missing historical records survive; taxonomy stays scoped to MERLIN.
- *      MERLIN_SYNC_ENABLED=false restores the historical dataset.
- *   5. Fetches `/monitoring-areas.geojson` (via
+ *   3. Fetches the single MERLIN_SOURCE snapshot directly. A reviewed ID-specific
+ *      coordinate correction is applied without loading the historical archive.
+ *      Appends the unchanged iNaturalist September additions by original ID.
+ *   4. Fetches `/monitoring-areas.geojson` (via
  *      `@/lib/monitoring-areas.ts`) and builds a per-observation
  *      monitoring-area membership index.
- *   6. Computes dataset-wide date bounds and initializes default filters
+ *   5. Computes dataset-wide date bounds and initializes default filters
  *      (all years selected, all detected user groups selected, plus
  *      "expert" always included).
  *
@@ -49,7 +44,7 @@
 import { createDefaultQualitySelection, type QualityGrade } from "@/lib/quality-filter";
 import { getInaturalistCommonName } from "./observation-enrichment";
 import { getObservationTaxonomyOverride } from "./observation-taxonomy-overrides";
-import { MERLIN_SYNC_ENABLED, MERLIN_SYNC_SOURCES, synchronizeMerlin } from "./merlin-sync";
+import { MERLIN_SOURCE, parseMerlinSnapshot } from "./merlin-source";
 import {
   getProfessionalTaxonomy,
   getObservationTaxonDetails,
@@ -259,73 +254,6 @@ function parseObservedTime(value: string): string | undefined {
   const [hour, minute, second = 0] = match[1].split(":").map(Number);
   if (hour > 23 || minute > 59 || second > 59) return undefined;
   return match[1];
-}
-
-function parseMerlinRow(row: Record<string, string>, index: number): Observation | null {
-  const lat = parseFloat((row.decimalLatitudeStart || "").trim());
-  const lon = parseFloat((row.decimalLongitudeStart || "").trim());
-  const observedOn = parseObservedOn(row.timeStamp || "", "merlin");
-
-  if (!observedOn || isNaN(lat) || isNaN(lon)) return null;
-
-  const family = (row.family || "").trim();
-  const isOdonata = ODONATA_FAMILIES.has(family);
-  const userLogin = isOdonata
-    ? REA_SHAISH_NAME
-    : (row.personName || row.recordedBy || row.eMail || "").trim();
-  if (!userLogin) return null;
-  const birdFamilies = [
-    "Columbidae",
-    "Ardeidae",
-    "Corvidae",
-    "Cisticolidae",
-    "Charadriidae",
-    "Alcedinidae",
-    "Hirundinidae",
-    "Paridae",
-    "Pycnonotidae",
-    "Sylviidae",
-    "Fringillidae",
-    "Acrocephalidae",
-    "Phasianidae",
-    "Turdidae",
-    "Accipitridae",
-    "Cuculidae",
-    "Laniidae",
-    "Motacillidae",
-    "Meropidae",
-    "Nectariniidae",
-  ];
-  let iconicTaxon = "";
-  if (["Hesperiidae", "Pieridae", "Lycaenidae", "Papilionidae", "Nymphalidae"].includes(family)) {
-    iconicTaxon = "Insecta";
-  } else if (
-    ["Canidae", "Mustelidae", "Hystricidae", "Herpestidae", "Leporidae", "Suidae"].includes(family)
-  ) {
-    iconicTaxon = "Mammalia";
-  } else if (birdFamilies.includes(family)) {
-    iconicTaxon = "Aves";
-  }
-
-  const observationId = (row.observationID || "").trim();
-  const compositeId = observationId ? `expert_${observationId}` : `expert_${index}`;
-
-  return {
-    observed_on: observedOn,
-    observed_time: parseObservedTime(row.timeStamp || ""),
-    latitude: lat,
-    longitude: lon,
-    user_login: userLogin,
-    quality_grade: "research",
-    iconic_taxon_name: iconicTaxon,
-    scientific_name: (row.scientificName || "").trim(),
-    common_name: (row.vernacularName || "").trim() || undefined,
-    taxon_order_name: family,
-    user_category: "expert",
-    user_subcategory: "expert",
-    composite_id: compositeId,
-    source: "merlin",
-  };
 }
 
 export const TAXA_GROUP_KEYS = [
@@ -627,62 +555,39 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
           })
           .filter((obs): obs is Observation => obs !== null);
 
-        // Load Merlin expert observations CSV
-        const merlinResponse = await fetch("/MERLIN all observations for Zohar.csv");
-        const merlinText = await merlinResponse.text();
-        const merlinData = Papa.parse<Record<string, string>>(merlinText, {
-          header: true,
-          skipEmptyLines: true,
-        }).data;
-
-        const merlinObservations: Observation[] = merlinData
-          .map((row, index) => parseMerlinRow(row, index))
-          .filter((obs): obs is Observation => obs !== null);
-        console.log("Loaded MERLIN observations:", merlinObservations.length);
-
-        // This separate, verified batch adds source IDs without updating historical rows.
-        const additionsResponse = await fetch("/inaturalist-september-2026-additions.json");
-        if (!additionsResponse.ok) throw new Error("Unable to load iNaturalist additions");
-        const additionsData: unknown = await additionsResponse.json();
-        const historicalObservations = appendInaturalistAdditions(
-          [...tziporiObservations, ...merlinObservations],
-          additionsData,
+        // One authoritative professional snapshot; no historical fetch or merge.
+        const merlinResponse = await fetch(`/${MERLIN_SOURCE.file_name}`);
+        if (!merlinResponse.ok) throw new Error("Unable to load professional monitoring snapshot");
+        const merlinObservations = parseMerlinSnapshot(
+          await merlinResponse.text(),
           parseObservedOn,
           parseObservedTime,
         );
-        let joinedObservations = historicalObservations;
-        if (MERLIN_SYNC_ENABLED) {
-          // Preserve the original source and all iNaturalist objects. A failed
-          // snapshot fetch leaves the complete historical dashboard available.
-          try {
-            for (const source of MERLIN_SYNC_SOURCES) {
-              const response = await fetch(`/${source.file_name}`);
-              if (!response.ok) throw new Error("Unable to load professional monitoring snapshot");
-              const parsed = Papa.parse<Record<string, string>>(await response.text(), {
-                header: true,
-                skipEmptyLines: true,
-              });
-              if (
-                parsed.errors.length ||
-                !parsed.meta.fields?.includes("composite_id") ||
-                !parsed.data.length
-              ) {
-                throw new Error("Invalid professional monitoring CSV");
-              }
-              const synced = synchronizeMerlin(
-                joinedObservations,
-                parsed.data,
-                parseObservedOn,
-                parseObservedTime,
-                source,
-              );
-              joinedObservations = synced.observations;
-              console.info("Professional monitoring sync", synced.summary);
-            }
-          } catch (error) {
-            console.error("Professional monitoring update failed; historical data retained", error);
-          }
-        }
+
+        const additionsResponse = await fetch("/inaturalist-september-2026-additions.json");
+        if (!additionsResponse.ok) throw new Error("Unable to load iNaturalist additions");
+        const additionsData: unknown = await additionsResponse.json();
+        // Preserve the published row order as well as the iNaturalist import policy.
+        // This fixed ID boundary controls ordering only, never loading or deletion.
+        const precedingMerlin = merlinObservations.filter(
+          (o) =>
+            Number(o.professional_metadata!.values.composite_id.split("_").pop()) <=
+            MERLIN_SOURCE.previous_source_id_max,
+        );
+        const followingMerlin = merlinObservations.filter(
+          (o) =>
+            Number(o.professional_metadata!.values.composite_id.split("_").pop()) >
+            MERLIN_SOURCE.previous_source_id_max,
+        );
+        const joinedObservations = [
+          ...appendInaturalistAdditions(
+            [...tziporiObservations, ...precedingMerlin],
+            additionsData,
+            parseObservedOn,
+            parseObservedTime,
+          ),
+          ...followingMerlin,
+        ];
         setObservations(joinedObservations);
 
         // Build per-user observation counts and metadata for leaderboards

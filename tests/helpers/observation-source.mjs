@@ -4,9 +4,13 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { MERLIN_ARCHIVE_PATH, readMerlinHistory } from "./merlin-history.mjs";
 
 export const root = fileURLToPath(new URL("../../", import.meta.url));
-export const read = (file) => readFileSync(resolve(root, file), "utf8");
+export const read = (file) =>
+  file === MERLIN_ARCHIVE_PATH
+    ? readMerlinHistory().toString("utf8")
+    : readFileSync(resolve(root, file), "utf8");
 export const tree = (source) =>
   ts.createSourceFile("source.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const compilerOptions = {
@@ -71,18 +75,24 @@ export function loadProductionModule(file) {
 
 export function loadPipeline(source) {
   const ast = tree(source);
+  // Historical regression/audit harness only. The active direct loader is
+  // executed separately by merlin-direct.test.mjs. Keep the former parser here
+  // so old date/enrichment guarantees remain testable without shipping it.
+  const historicalAst = source.includes("function parseMerlinRow(")
+    ? ast
+    : tree(read("tests/fixtures/merlin-synchronized-store.tsx.txt"));
   const constants = ["CATEGORY_MAP", "ODONATA_FAMILIES", "REA_SHAISH_NAME"]
     .map((name) => `const ${variable(ast, name).getText(ast)};`)
     .join("\n");
   const functions = ["getSupergroup", "parseObservedOn", "parseObservedTime", "parseMerlinRow"]
-    .map((name) => functionText(ast, name))
+    .map((name) => functionText(name === "parseMerlinRow" ? historicalAst : ast, name))
     .join("\n");
   return evaluate(
     `${constants}\n${functions}
     return { parseObservedOn, parseObservedTime,
       load(observationsData, merlinData, userGroupMap) {
         const inat = ${variable(ast, "tziporiObservations").initializer.getText(ast)};
-        const merlin = ${variable(ast, "merlinObservations").initializer.getText(ast)};
+        const merlin = ${variable(historicalAst, "merlinObservations").initializer.getText(historicalAst)};
         return [...inat, ...merlin];
       }
     };`,

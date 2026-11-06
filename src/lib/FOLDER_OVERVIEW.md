@@ -58,17 +58,23 @@ lat/lng are silently dropped.
 | `id` | no | Becomes `composite_id: "inat_<id>"` — used as the React/map key and to look up full detail in the map sidebar. |
 | `url` | no | `Observation.source_url` — "View on iNaturalist" link. |
 
-### 3. `public/MERLIN all observations for Zohar.csv` (expert monitoring)
-Parsed by `parseMerlinRow`. Represents professional/expert field
-observations, always tagged `quality_grade: "research"`.
+### 3. `public/merlin-experts-2026-11-05.csv` (professional monitoring)
+The single active MERLIN source contains 2,644 rows and 22 columns.
+`merlin-source.ts` validates the schema, row count and unique source IDs, parses
+ISO calendar dates and recorded times, and preserves source names/classifications
+in observation-scoped metadata. Generic/genus identifications retain the reviewed
+policy. Shared dictionaries and iNaturalist classifications are unchanged.
 
-| Column | Required | Maps to |
-| --- | --- | --- |
-| `timeStamp` | yes | `Observation.observed_on`. |
-| `decimalLatitudeStart`, `decimalLongitudeStart` | yes | `Observation.latitude/longitude`. |
-| `family` | no | Drives both `iconic_taxon_name` inference (bird/mammal/butterfly family lists) and Odonata detection (`ODONATA_FAMILIES`). |
-| `personName` / `recordedBy` / `eMail` | one required (unless Odonata) | `Observation.user_login`. Odonata-family rows are always attributed to the fixed name `REA_SHAISH_NAME` ("רע שיש"). |
-| `observationID` | no | Becomes `composite_id: "expert_<observationID>"` (falls back to `expert_<row index>`). |
+Only source ID 113424 with coordinates 0,0 receives the explicitly approved
+position 32.74648,35.218938, pending clarification with Shalom. No other locations
+are corrected. The fixed previous ID boundary is used only to preserve CSV row
+order around the separate iNaturalist additions; it is not a merge or deletion rule.
+
+The former 88-column CSV lives in `data-archive/merlin/2026-11-05/`. Neither it nor
+the archived synchronization code participates in the application bundle/loading.
+An unavailable or invalid active snapshot fails the load explicitly, without
+silently reverting to historical data or dropping individual records. Future
+snapshot changes require offline ID comparison and review of missing observations.
 
 ### 4. `public/monitoring-areas.geojson` (dynamic monitoring areas)
 Loaded via `@/lib/monitoring-areas.ts`'s `loadMonitoringAreas()`. A
@@ -83,7 +89,7 @@ section, independent of the 4 static `survey-polygons.ts` shapes.
 user_groups.csv ──┐
                    ├─▶ tziporiObservations (from Until_June26.csv)  ─┐
                    │                                                 ├─▶ observations[] (ObservationsProvider state)
-MERLIN ...csv ─────┴─▶ merlinObservations ───────────────────────────┘
+MERLIN snapshot ─────┴─▶ merlinObservations ───────────────────────────┘
 monitoring-areas.geojson ─▶ observationMonitoringAreaIndex (WeakMap)
 ```
 

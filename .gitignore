@@ -33,3 +33,9 @@ dist-ssr
 .vercel
 
 .vercel/
+
+# Full historical source backups are local only; never publish new copies.
+/data-archive/
+
+# Detailed reconciliation reports remain local; regenerate with audit:merlin.
+/docs/merlin-direct-2026-11-06/comparison.json
