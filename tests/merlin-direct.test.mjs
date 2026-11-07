@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import Papa from "papaparse";
 import {
@@ -53,6 +54,51 @@ const quality = loadProductionModule("src/lib/quality-filter.ts");
 const index = areas.buildObservationMonitoringAreaIndex(rows, geo);
 const oldIndex = areas.buildObservationMonitoringAreaIndex(baseline, geo);
 const memo = (ast, name) => variable(ast, name).initializer.arguments[0].getText(ast);
+// Recover the previously published snapshot without shipping a second active CSV.
+const beforeNameFixBytes = execFileSync(
+  "git",
+  ["cat-file", "blob", "b9680d85f77506b716e4283fb7f9b26890f96743"],
+  { maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+);
+const beforeNameFixRaw = Papa.parse(beforeNameFixBytes.toString("utf8"), {
+  header: true,
+  skipEmptyLines: true,
+}).data;
+const beforeNameFix = parse(beforeNameFixRaw);
+
+test("137747 correction changes exactly three source names and preserves every other record and classification", () => {
+  assert.equal(
+    hash(beforeNameFixBytes),
+    "7d1d516e7a51b8fb7eaffc5a2ca71b76e57d19e89d1a6d714796d4bfc2ca6a34",
+  );
+  assert.deepEqual(ids(incoming), ids(beforeNameFixRaw));
+  const changes = [];
+  for (const old of beforeNameFixRaw) {
+    const current = rawById.get(old.composite_id);
+    for (const field of Object.keys(old))
+      if (current[field] !== old[field])
+        changes.push([old.composite_id, field, old[field], current[field]]);
+  }
+  assert.deepEqual(changes, [
+    ["ai4biodiversity.haifa.ac.il_137747", "scientific_name", "gomphus davidi", "zygonyx torridus"],
+    ["ai4biodiversity.haifa.ac.il_137747", "hebrew_name", "מלקחית נהרות", "דאונית אשדים"],
+    ["ai4biodiversity.haifa.ac.il_137747", "english_name", "Levant Clubtail", "Ringed cascader"],
+  ]);
+  for (const old of beforeNameFix) {
+    const current = byId.get(old.composite_id);
+    assert.equal(store.getTaxaGroup(current), store.getTaxaGroup(old));
+    assert.equal(store.getSpeciesClassification(current), store.getSpeciesClassification(old));
+    assert.equal(
+      store.getObservationTaxonDetails(current).isGeneric,
+      store.getObservationTaxonDetails(old).isGeneric,
+    );
+    if (old.composite_id !== key("137747")) assert.deepEqual(current, old);
+  }
+  const fixed = byId.get(key("137747"));
+  assert.equal(fixed.scientific_name, "zygonyx torridus");
+  assert.equal(fixed.common_name, "דאונית אשדים");
+  assert.equal(store.getObservationTaxonDetails(fixed).englishName, "Ringed cascader");
+});
 
 test("current loader loads 14,960 unique rows with correct source, year, observer and new-data totals", async () => {
   assert.deepEqual(state.errors, []);
@@ -129,11 +175,11 @@ test("all prior IDs remain, only 113424 coordinates change, iNaturalist is ident
   );
 });
 
-test("18:48 source is byte-exact; previous 22-column snapshot and full 88-column history remain recoverable", () => {
+test("corrected source is byte-exact; previous 22-column snapshot and full 88-column history remain recoverable", () => {
   assert.equal(direct.MERLIN_SOURCE.expected_rows, 3664);
   assert.equal(
     direct.MERLIN_SOURCE.file_sha256,
-    "7d1d516e7a51b8fb7eaffc5a2ca71b76e57d19e89d1a6d714796d4bfc2ca6a34",
+    "b706693f023d5bc233b6bea758ea7994fbcf86e405d9c0ed51e9be48b7220684",
   );
   assert.equal(
     hash(fs.readFileSync(`public/${direct.MERLIN_SOURCE.file_name}`)),
@@ -357,7 +403,7 @@ test("metrics, species choices and time-series include all new observations", ()
   assert.deepEqual(compute(unchangedCurrent), compute(unchangedBaseline));
   assert.equal(compute(rows).observations, 14960);
   assert.equal(compute(experts).observations, 3664);
-  assert.equal(compute(added).distinctSpecies, 99);
+  assert.equal(compute(added).distinctSpecies, 100);
   const deep = tree(read("src/components/species-deep-dive.tsx"));
   const speciesMap = loadProductionModule("src/lib/species-map.ts").speciesMap;
   const choices = evaluate(`return(observations)=>(${memo(deep, "groupedSpecies")})();`, {
@@ -369,7 +415,7 @@ test("metrics, species choices and time-series include all new observations", ()
   for (const o of added)
     assert.ok(choices[store.getTaxaGroup(o)].some((s) => s.Scientific_Name === o.scientific_name));
   const summary = evaluate(`return(deepDiveFiltered)=>(${memo(deep, "summary")})();`, store);
-  assert.deepEqual(summary(added), { rows: 1020, observers: 1, species: 99, unidentified: 0 });
+  assert.deepEqual(summary(added), { rows: 1020, observers: 1, species: 100, unidentified: 0 });
   const chart = tree(read("src/components/time-series-chart.tsx"));
   const counts = evaluate(
     `return(data)=>(${memo(chart, "{ rawCounts, allSortKeys, allGroups }")})();`,
@@ -438,6 +484,28 @@ test("both CSV languages preserve all prior rows except 113424 and export exact 
     const fixed = after.find((r) => r[id] === corrected);
     assert.equal(+fixed[lat], 32.745815);
     assert.equal(+fixed[lon], 35.221931);
+    exporter(
+      beforeNameFix,
+      geo,
+      areas.buildObservationMonitoringAreaIndex(beforeNameFix, geo),
+      lang,
+    );
+    const beforeNames = Papa.parse(await blob.text(), { header: true }).data;
+    const currentExperts = after.filter((r) => r.Source === "MERLIN" || r["מקור"] === "MERLIN");
+    const scientific = lang === "he" ? "שם מדעי" : "Scientific Name";
+    const expected = beforeNames.map((r) =>
+      r[id] === key("137747")
+        ? {
+            ...r,
+            [scientific]: "zygonyx torridus",
+            [common]: lang === "he" ? "דאונית אשדים" : "Ringed cascader",
+          }
+        : r,
+    );
+    assert.equal(currentExperts.length, expected.length);
+    const expectedById = new Map(expected.map((r) => [r[id], r]));
+    for (const current of currentExperts)
+      assert.deepEqual(current, expectedById.get(current[id]), current[id]);
   }
 });
 

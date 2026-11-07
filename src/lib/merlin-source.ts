@@ -5,9 +5,9 @@ import { speciesMap } from "./species-map";
 
 /** Replace only after an offline comparison and review of missing source IDs. */
 export const MERLIN_SOURCE = {
-  // Shalom's revised export sent on 2026-11-06 at 18:48 (Asia/Jerusalem).
+  // Shalom's 2026-11-07 correction: names for observation 137747 only.
   file_name: "merlin-experts-2026-11-06.csv",
-  file_sha256: "7d1d516e7a51b8fb7eaffc5a2ca71b76e57d19e89d1a6d714796d4bfc2ca6a34",
+  file_sha256: "b706693f023d5bc233b6bea758ea7994fbcf86e405d9c0ed51e9be48b7220684",
   expected_rows: 3664,
   // Presentation order only: preserve the published CSV row order around the
   // separate iNaturalist additions. No values/records are read from the archive.
