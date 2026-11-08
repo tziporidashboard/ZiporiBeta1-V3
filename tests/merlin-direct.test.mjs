@@ -24,7 +24,23 @@ const state = await loadDirectDashboard();
 const rows = state.observations;
 const byId = new Map(rows.map((o) => [o.composite_id, o]));
 const baselineIds = new Set(baseline.map((o) => o.composite_id));
-const added = rows.filter((o) => !baselineIds.has(o.composite_id));
+const previousPublishedBytes = execFileSync(
+  "git",
+  ["cat-file", "blob", "e0d6def0ff1506c13e885b3107e8f89239277aa1"],
+  { maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+);
+const previousPublishedRaw = Papa.parse(previousPublishedBytes.toString("utf8"), {
+  header: true,
+  skipEmptyLines: true,
+}).data;
+const previousPublishedIds = new Set(previousPublishedRaw.map((r) => `expert_${r.composite_id}`));
+const butterflies = rows.filter(
+  (o) => o.source === "merlin" && !previousPublishedIds.has(o.composite_id),
+);
+// Keep regression coverage for the previous Rea import separate from this batch.
+const added = rows.filter(
+  (o) => !baselineIds.has(o.composite_id) && previousPublishedIds.has(o.composite_id),
+);
 const experts = rows.filter((o) => o.source === "merlin");
 const incoming = Papa.parse(read(`public/${direct.MERLIN_SOURCE.file_name}`), {
   header: true,
@@ -71,7 +87,7 @@ test("137747 correction changes exactly three source names and preserves every o
     hash(beforeNameFixBytes),
     "7d1d516e7a51b8fb7eaffc5a2ca71b76e57d19e89d1a6d714796d4bfc2ca6a34",
   );
-  assert.deepEqual(ids(incoming), ids(beforeNameFixRaw));
+  assert.deepEqual(ids(incoming.slice(0, 3664)), ids(beforeNameFixRaw));
   const changes = [];
   for (const old of beforeNameFixRaw) {
     const current = rawById.get(old.composite_id);
@@ -100,24 +116,70 @@ test("137747 correction changes exactly three source names and preserves every o
   assert.equal(store.getObservationTaxonDetails(fixed).englishName, "Ringed cascader");
 });
 
-test("current loader loads 14,960 unique rows with correct source, year, observer and new-data totals", async () => {
+test("429 approved butterflies preserve all previous data and use the corrected source dates", () => {
+  assert.equal(
+    hash(previousPublishedBytes),
+    "b706693f023d5bc233b6bea758ea7994fbcf86e405d9c0ed51e9be48b7220684",
+  );
+  assert.deepEqual(incoming.slice(0, 3664), previousPublishedRaw);
+  const bytes = fs.readFileSync(`public/${direct.MERLIN_SOURCE.file_name}`);
+  assert.deepEqual(bytes.subarray(0, previousPublishedBytes.length), previousPublishedBytes);
+  const correctedBatch = Buffer.concat([
+    bytes.subarray(0, bytes.indexOf(10) + 1),
+    bytes.subarray(previousPublishedBytes.length),
+  ]);
+  assert.equal(
+    hash(correctedBatch),
+    "4551e10ec146b3cadd748654737b3c0db7744389028020484406069d320d3001",
+  );
+  assert.equal(butterflies.length, 429);
+  assert.ok(
+    butterflies.every((o) => o.user_login === "רחלי שוורץ-צחור" && o.observed_on.endsWith("2026")),
+  );
+  assert.deepEqual(count(butterflies, store.getTaxaGroup), { butterflies: 429 });
+  assert.deepEqual(count(butterflies, store.getSpeciesClassification), {
+    other_species: 420,
+    rare: 6,
+    invasive: 3,
+  });
+  assert.equal(new Set(butterflies.map((o) => o.scientific_name)).size, 28);
+  assert.ok(butterflies.every((o) => !store.getObservationTaxonDetails(o).isGeneric));
+  assert.deepEqual(
+    count(incoming.slice(3664), (r) => r.observed_on.slice(0, 10)),
+    {
+      "2026-02-12": 24,
+      "2026-04-23": 37,
+      "2026-06-28": 108,
+      "2026-10-22": 68,
+      "2026-02-10": 28,
+      "2026-05-01": 59,
+      "2026-07-02": 76,
+      "2026-10-19": 29,
+    },
+  );
+  assert.ok(incoming.every((r) => r.observed_on.slice(0, 10) <= "2026-11-08"));
+  for (const previous of parse(previousPublishedRaw))
+    assert.deepEqual(byId.get(previous.composite_id), previous);
+});
+
+test("current loader loads 15,389 unique rows with correct source, year, observer and new-data totals", async () => {
   assert.deepEqual(state.errors, []);
   assert.equal(state.requests.length, 4);
   assert.equal(state.requests.filter((p) => p === `/${direct.MERLIN_SOURCE.file_name}`).length, 1);
-  assert.equal(rows.length, 14960);
-  assert.equal(new Set(ids(rows)).size, 14960);
+  assert.equal(rows.length, 15389);
+  assert.equal(new Set(ids(rows)).size, 15389);
   assert.equal(added.length, 1020);
   assert.deepEqual(
     count(rows, (o) => o.source),
-    { inaturalist: 11296, merlin: 3664 },
+    { inaturalist: 11296, merlin: 4093 },
   );
   assert.deepEqual(
     count(experts, (o) => o.observed_on.slice(6)),
-    { 2024: 600, 2025: 1754, 2026: 1310 },
+    { 2024: 600, 2025: 1754, 2026: 1739 },
   );
   assert.deepEqual(
     count(experts, (o) => o.user_login),
-    { "רחלי שוורץ-צחור": 771, "אסף בן-דוד": 455, "רע שיש": 2438 },
+    { "רחלי שוורץ-צחור": 1200, "אסף בן-דוד": 455, "רע שיש": 2438 },
   );
   assert.ok(
     added.every(
@@ -132,11 +194,11 @@ test("current loader loads 14,960 unique rows with correct source, year, observe
   });
   assert.equal(
     [...state.counts.values()].reduce((n, c) => n + c, 0),
-    14960,
+    15389,
   );
   assert.equal(
     state.stats.reduce((n, s) => n + s.totalObservations, 0),
-    14960,
+    15389,
   );
   assert.ok(state.filters.groups.has("expert") && state.filters.time.has("2026"));
   assert.deepEqual((await loadDirectDashboard()).observations, rows);
@@ -176,10 +238,10 @@ test("all prior IDs remain, only 113424 coordinates change, iNaturalist is ident
 });
 
 test("corrected source is byte-exact; previous 22-column snapshot and full 88-column history remain recoverable", () => {
-  assert.equal(direct.MERLIN_SOURCE.expected_rows, 3664);
+  assert.equal(direct.MERLIN_SOURCE.expected_rows, 4093);
   assert.equal(
     direct.MERLIN_SOURCE.file_sha256,
-    "b706693f023d5bc233b6bea758ea7994fbcf86e405d9c0ed51e9be48b7220684",
+    "463095ab5114a810da8d2889748e72de9ded0c96d0868ce9d06be448b8dc28bf",
   );
   assert.equal(
     hash(fs.readFileSync(`public/${direct.MERLIN_SOURCE.file_name}`)),
@@ -291,9 +353,9 @@ test("map counts/details cover all records; unchanged coordinates retain all mem
   assert.deepEqual(bubbles(unchangedCurrent), bubbles(unchangedBaseline));
   assert.equal(
     bubbles(rows).reduce((n, b) => n + b.count, 0),
-    14960,
+    15389,
   );
-  assert.equal(evaluate(`return(data)=>(${memo(ast, "observationsMap")})();`)(rows).size, 14960);
+  assert.equal(evaluate(`return(data)=>(${memo(ast, "observationsMap")})();`)(rows).size, 15389);
 });
 
 test("five filtering pipelines preserve existing data and include new rows in all relevant filters", () => {
@@ -314,7 +376,7 @@ test("five filtering pipelines preserve existing data and include new rows in al
     ...store.TAXA_GROUP_KEYS.map((g) => ({ taxa: new Set([g]) })),
     ...["rare", "invasive", "other_species"].map((s) => ({ speciesTypes: new Set([s]) })),
     ...["2024", "2025", "2026"].map((y) => ({ time: new Map([[y, new Set()]]) })),
-    ...["04", "05", "07", "08", "09", "11"].map((m) => ({
+    ...["02", "04", "05", "06", "07", "08", "09", "10", "11", "12"].map((m) => ({
       time: new Map([["2026", new Set([m])]]),
     })),
     ...["research", "needs_id", "casual"].map((q) => ({ qualityGrades: new Set([q]) })),
@@ -372,18 +434,32 @@ test("five filtering pipelines preserve existing data and include new rows in al
         ids(before(unchangedBaseline, { ...defaults, ...patch })),
         name,
       );
-    assert.equal(current(rows, defaults).length, 14960);
+    assert.equal(current(rows, defaults).length, 15389);
     assert.equal(
       current(rows, { ...defaults, time: new Map([["2026", new Set()]]) }).filter(
         (o) => o.source === "merlin",
       ).length,
-      1310,
+      1739,
     );
     const source = (patch) => current(added, { ...defaults, ...patch });
     assert.equal(source({ taxa: new Set(["birds"]) }).length, 519);
     assert.equal(source({ taxa: new Set(["dragonflies"]) }).length, 501);
     assert.equal(source({ speciesTypes: new Set(["rare"]) }).length, 87);
     assert.equal(source({ speciesTypes: new Set(["invasive"]) }).length, 30);
+    assert.equal(current(butterflies, { ...defaults, taxa: new Set(["butterflies"]) }).length, 429);
+    for (const [month, expected] of Object.entries({
+      "02": 52,
+      "04": 37,
+      "05": 59,
+      "06": 108,
+      "07": 76,
+      10: 97,
+      12: 0,
+    }))
+      assert.equal(
+        current(butterflies, { ...defaults, time: new Map([["2026", new Set([month])]]) }).length,
+        expected,
+      );
     assert.deepEqual(ids(current([byId.get(corrected)], { ...defaults, ...scenarios.at(-1) })), [
       corrected,
     ]);
@@ -401,8 +477,8 @@ test("metrics, species choices and time-series include all new observations", ()
   const metrics = tree(read("src/components/metrics-table.tsx"));
   const compute = evaluate(`${functionText(metrics, "computeRow")}return computeRow;`, store);
   assert.deepEqual(compute(unchangedCurrent), compute(unchangedBaseline));
-  assert.equal(compute(rows).observations, 14960);
-  assert.equal(compute(experts).observations, 3664);
+  assert.equal(compute(rows).observations, 15389);
+  assert.equal(compute(experts).observations, 4093);
   assert.equal(compute(added).distinctSpecies, 100);
   const deep = tree(read("src/components/species-deep-dive.tsx"));
   const speciesMap = loadProductionModule("src/lib/species-map.ts").speciesMap;
@@ -426,11 +502,11 @@ test("metrics, species choices and time-series include all new observations", ()
       (s, m) => s + [...m.counts.values()].reduce((a, n) => a + n, 0),
       0,
     ),
-    14960,
+    15389,
   );
   assert.equal(
     [...counts.rawCounts.values()].reduce((s, m) => s + (m.counts.get("expert") ?? 0), 0),
-    3664,
+    4093,
   );
   const insights = loadProductionModule("src/components/species-insights-table.tsx");
   assert.deepEqual(
@@ -466,7 +542,7 @@ test("both CSV languages preserve all prior rows except 113424 and export exact 
     const lat = lang === "he" ? "קו רוחב" : "Latitude",
       lon = lang === "he" ? "קו אורך" : "Longitude";
     const common = lang === "he" ? "שם נפוץ" : "Common Name";
-    assert.equal(after.length, 14960);
+    assert.equal(after.length, 15389);
     assert.equal(Object.keys(after[0]).length, 18);
     assert.deepEqual(
       after.filter((o) => unchangedIds.has(o[id])),
@@ -491,7 +567,7 @@ test("both CSV languages preserve all prior rows except 113424 and export exact 
       lang,
     );
     const beforeNames = Papa.parse(await blob.text(), { header: true }).data;
-    const currentExperts = after.filter((r) => r.Source === "MERLIN" || r["מקור"] === "MERLIN");
+    const currentExperts = after.filter((r) => previousPublishedIds.has(r[id]));
     const scientific = lang === "he" ? "שם מדעי" : "Scientific Name";
     const expected = beforeNames.map((r) =>
       r[id] === key("137747")

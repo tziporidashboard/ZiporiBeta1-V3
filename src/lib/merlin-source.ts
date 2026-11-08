@@ -5,10 +5,10 @@ import { speciesMap } from "./species-map";
 
 /** Replace only after an offline comparison and review of missing source IDs. */
 export const MERLIN_SOURCE = {
-  // Shalom's 2026-11-07 correction: names for observation 137747 only.
+  // Approved 3,664-row snapshot plus Shalom's 2026-11-08 butterfly export with fixed dates.
   file_name: "merlin-experts-2026-11-06.csv",
-  file_sha256: "b706693f023d5bc233b6bea758ea7994fbcf86e405d9c0ed51e9be48b7220684",
-  expected_rows: 3664,
+  file_sha256: "463095ab5114a810da8d2889748e72de9ded0c96d0868ce9d06be448b8dc28bf",
+  expected_rows: 4093,
   // Presentation order only: preserve the published CSV row order around the
   // separate iNaturalist additions. No values/records are read from the archive.
   previous_source_id_max: 114909,
