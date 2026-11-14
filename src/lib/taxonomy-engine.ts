@@ -11,7 +11,7 @@
  *   getTaxonStatus(scientificName)   → SpeciesStatus
  */
 
-import { speciesMap, type SpeciesInfo } from "./species-map";
+import { speciesMap, legacySpeciesMap, type SpeciesInfo } from "./species-map";
 import { classifySpecies, type SpeciesStatus } from "./species-registry";
 
 // ─── Canonical category keys (Hebrew labels used throughout the app) ──────────
@@ -47,6 +47,7 @@ export type { SpeciesInfo };
 const _byScientificName = new Map<string, SpeciesInfo>(
   speciesMap.map((e) => [e.Scientific_Name.trim().toLowerCase(), e])
 );
+const legacyByName = new Map(legacySpeciesMap.map((e) => [e.Scientific_Name.trim().toLowerCase(), e]));
 
 function normalizeCategory(raw: string | undefined): CanonicalCategory {
   if (!raw) return "שאר המינים";
@@ -67,10 +68,11 @@ function normalizeCategory(raw: string | undefined): CanonicalCategory {
 export function getTaxonDetails(
   scientificName: string,
   _iconicTaxon?: string,
-  _commonName?: string
+  _commonName?: string,
+  legacy = false,
 ): TaxonDetails {
   const key = (scientificName ?? "").trim().toLowerCase();
-  const entry = _byScientificName.get(key);
+  const entry = (legacy ? legacyByName : _byScientificName).get(key);
   const status = classifySpecies(scientificName);
 
   if (!entry) {
@@ -110,4 +112,13 @@ export function getTaxonCategory(
  */
 export function getTaxonStatus(scientificName: string): SpeciesStatus {
   return classifySpecies(scientificName);
+}
+
+/** Preserve the classifications published before the scoped dictionary supplement. */
+export function getLegacyTaxonDetails(scientificName: string): TaxonDetails {
+  return getTaxonDetails(scientificName, undefined, undefined, true);
+}
+
+export function getLegacyTaxonCategory(scientificName: string, _iconicTaxon?: string, _commonName?: string): CanonicalCategory {
+  return getLegacyTaxonDetails(scientificName).category;
 }

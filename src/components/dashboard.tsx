@@ -32,7 +32,7 @@
 import { matchesQualitySelection } from "@/lib/quality-filter";
 import { useMemo } from "react";
 import { useObservations, getTaxaGroup, getSpeciesClassification } from "@/lib/observations-store";
-import { getObservationTaxonDetails } from "@/lib/observations-store";
+import { getObservationTaxonDetails, getObservationSpeciesKey } from "@/lib/observations-store";
 import { getObservationArea, type SurveyAreaKey } from "@/lib/survey-polygons";
 import { observationMatchesSelectedAreas } from "@/lib/monitoring-areas";
 import { useI18n } from "@/lib/i18n";
@@ -161,7 +161,7 @@ export function Dashboard() {
     for (const o of filtered) {
       if (o.user_login) observers.add(o.user_login);
       if (o.scientific_name && !getObservationTaxonDetails(o).isGeneric) {
-        species.add(o.scientific_name);
+        species.add(getObservationSpeciesKey(o));
       }
     }
     return { rows: filtered.length, observers: observers.size, species: species.size };

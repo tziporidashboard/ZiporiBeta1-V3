@@ -45,6 +45,8 @@ import {
   getTaxaGroup,
   translateSpeciesName,
   getProfessionalTaxonomy,
+  getObservationSpeciesCompletion,
+  getObservationSpeciesKey,
 } from "@/lib/observations-store";
 import { getObservationTaxonomyOverride } from "@/lib/observation-taxonomy-overrides";
 import { useI18n } from "@/lib/i18n";
@@ -201,14 +203,17 @@ export function ObservationMap({
     for (const obs of data) {
       const category = getTaxaGroup(obs) || "other";
       const correction =
-        getObservationTaxonomyOverride(obs) ?? getProfessionalTaxonomy(obs)?.category ?? null;
+        getObservationTaxonomyOverride(obs) ??
+        getProfessionalTaxonomy(obs)?.category ??
+        getObservationSpeciesCompletion(obs)?.Category ??
+        null;
       const key = `${obs.scientific_name}|${obs.observed_on}|${obs.latitude.toFixed(3)}|${obs.longitude.toFixed(3)}${correction === null ? "" : `|${correction}`}`;
 
       if (groups.has(key)) {
         const existing = groups.get(key)!;
         existing.count++;
         existing.raw_observations.push({
-          species: obs.scientific_name,
+          species: getObservationSpeciesKey(obs),
           date: obs.observed_on,
           originalLat: obs.latitude,
           originalLng: obs.longitude,
@@ -222,7 +227,7 @@ export function ObservationMap({
           category,
           raw_observations: [
             {
-              species: obs.scientific_name,
+              species: getObservationSpeciesKey(obs),
               date: obs.observed_on,
               originalLat: obs.latitude,
               originalLng: obs.longitude,
@@ -445,8 +450,11 @@ export function ObservationMap({
                 <div className="text-center font-medium italic">
                   {lang === "he"
                     ? (getProfessionalTaxonomy(obs)?.name ??
+                      getObservationSpeciesCompletion(obs)?.Hebrew_Name ??
                       translateSpeciesName(obs.scientific_name))
-                    : getProfessionalTaxonomy(obs)?.englishName || obs.scientific_name}
+                    : getProfessionalTaxonomy(obs)?.englishName ||
+                      getObservationSpeciesCompletion(obs)?.English_Name ||
+                      obs.scientific_name}
                 </div>
                 <div>
                   <span className="font-medium">{t("userName")}: </span>

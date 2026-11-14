@@ -33,7 +33,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useI18n, getLabel } from "@/lib/i18n";
-import { translateMonth, getTaxaGroup, getProfessionalTaxonomy } from "@/lib/observations-store";
+import {
+  translateMonth,
+  getTaxaGroup,
+  getProfessionalTaxonomy,
+  getObservationSpeciesKey,
+  matchesSpeciesSelection,
+} from "@/lib/observations-store";
 import type { Observation, TaxaGroupKey } from "@/lib/observations-store";
 import { SPECIES_MAP } from "@/lib/species-dictionary";
 
@@ -168,8 +174,8 @@ export function DeepDiveTimeSeriesChart({
         if (!parsed) continue;
         const { sortKey, label } = parsed;
 
-        if (!selectedSet.has(o.scientific_name)) continue;
-        const seriesKey = o.scientific_name;
+        if (!matchesSpeciesSelection(o, selectedSet)) continue;
+        const seriesKey = getObservationSpeciesKey(o);
 
         if (!countsMap.has(sortKey)) {
           countsMap.set(sortKey, { label, counts: new Map() });

@@ -45,6 +45,9 @@ import {
   getTaxaGroup,
   getObservationTaxonDetails,
   getProfessionalTaxonomy,
+  getObservationSpeciesKey,
+  matchesSpeciesSelection,
+  getSpeciesSearchAlias,
   TAXA_GROUP_KEYS,
   type TaxaGroupKey,
 } from "@/lib/observations-store";
@@ -208,7 +211,7 @@ export function SpeciesDeepDive() {
       if (professional && !professional.isGeneric) {
         const group = getTaxaGroup(observation);
         const entry = {
-          Scientific_Name: observation.scientific_name,
+          Scientific_Name: getObservationSpeciesKey(observation),
           Hebrew_Name: professional.name,
           English_Name: professional.englishName,
           Category: professional.category,
@@ -246,6 +249,7 @@ export function SpeciesDeepDive() {
     return associated.filter(
       (sp) =>
         sp.Scientific_Name.toLowerCase().includes(q) ||
+        getSpeciesSearchAlias(sp.Scientific_Name).toLowerCase().includes(q) ||
         (sp.Hebrew_Name && sp.Hebrew_Name !== "N/A" && sp.Hebrew_Name.toLowerCase().includes(q)) ||
         (sp.English_Name && sp.English_Name !== "N/A" && sp.English_Name.toLowerCase().includes(q)),
     );
@@ -296,7 +300,7 @@ export function SpeciesDeepDive() {
   const deepDiveFiltered = useMemo(() => {
     return globallyFilteredObservations.filter((o) => {
       if (category && getTaxaGroup(o) !== category) return false;
-      if (species.size > 0 && !species.has(o.scientific_name)) return false;
+      if (!matchesSpeciesSelection(o, species)) return false;
       return true;
     });
   }, [globallyFilteredObservations, category, species]);
@@ -312,7 +316,7 @@ export function SpeciesDeepDive() {
       if (details.isGeneric) {
         unidentified++;
       } else if (o.scientific_name) {
-        speciesSet.add(o.scientific_name);
+        speciesSet.add(getObservationSpeciesKey(o));
       }
     }
     return {
@@ -344,7 +348,9 @@ export function SpeciesDeepDive() {
     const counts = new Map<string, number>();
     for (const o of globallyFilteredObservations) {
       if ((activeCategory && getTaxaGroup(o) !== activeCategory) || !o.scientific_name) continue;
-      counts.set(o.scientific_name, (counts.get(o.scientific_name) ?? 0) + 1);
+      const key = getObservationSpeciesKey(o);
+      if (!matchesSpeciesSelection(o, new Set([key]))) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     return counts;
   }, [globallyFilteredObservations, activeCategory]);
@@ -502,6 +508,11 @@ export function SpeciesDeepDive() {
                     return (
                       <label
                         key={sp.Scientific_Name}
+                        title={
+                          sp.taxonRank
+                            ? `${sp.Scientific_Name} · ${sp.taxonRank}`
+                            : getSpeciesSearchAlias(sp.Scientific_Name) || sp.Scientific_Name
+                        }
                         className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted"
                       >
                         <input
@@ -511,6 +522,11 @@ export function SpeciesDeepDive() {
                         />
                         <span className="truncate">
                           {getSpeciesLabel(sp, lang)} ({count.toLocaleString()})
+                          {sp.taxonRank === "subspecies"
+                            ? lang === "he"
+                              ? " · תת־מין"
+                              : " · subspecies"
+                            : ""}
                         </span>
                       </label>
                     );

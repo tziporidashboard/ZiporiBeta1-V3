@@ -17,6 +17,7 @@
  *   3. Fetches the single MERLIN_SOURCE snapshot directly. A reviewed ID-specific
  *      coordinate correction is applied without loading the historical archive.
  *      Appends the unchanged iNaturalist September additions by original ID.
+ *      Then appends the separately verified October additions by stable source ID.
  *   4. Fetches `/monitoring-areas.geojson` (via
  *      `@/lib/monitoring-areas.ts`) and builds a per-observation
  *      monitoring-area membership index.
@@ -72,7 +73,14 @@ import type { Polygon } from "geojson";
 import type { SurveyAreaKey } from "./survey-polygons";
 import { SURVEY_AREA_KEYS } from "./survey-polygons";
 import { getSpeciesHebrewName } from "./species-dictionary";
-import { getTaxonCategory } from "./taxonomy-engine";
+import { getLegacyTaxonCategory as getTaxonCategory } from "./taxonomy-engine";
+import { getObservationSpeciesCompletion } from "./observation-species-completions";
+export {
+  getObservationSpeciesCompletion,
+  getObservationSpeciesKey,
+  matchesSpeciesSelection,
+  getSpeciesSearchAlias,
+} from "./observation-species-completions";
 import {
   buildObservationMonitoringAreaIndex,
   loadMonitoringAreas,
@@ -289,6 +297,8 @@ export function getTaxaGroup(o: Observation): TaxaGroupKey {
   if (professional) return TAB_LABEL_TO_GROUP[professional.category] ?? "other";
   const correction = getObservationTaxonomyOverride(o);
   if (correction !== null) return correction;
+  const completion = getObservationSpeciesCompletion(o);
+  if (completion) return TAB_LABEL_TO_GROUP[completion.Category] ?? "other";
   const sci = o.scientific_name;
 
   // 1. Taxonomy engine lookup (uses iconic_taxon_name + common_name for fallbacks)
@@ -579,7 +589,7 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
             Number(o.professional_metadata!.values.composite_id.split("_").pop()) >
             MERLIN_SOURCE.previous_source_id_max,
         );
-        const joinedObservations = [
+        const historicalObservations = [
           ...appendInaturalistAdditions(
             [...tziporiObservations, ...precedingMerlin],
             additionsData,
@@ -588,6 +598,22 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
           ),
           ...followingMerlin,
         ];
+        const octoberResponse = await fetch("/inaturalist-october-2026-additions.json");
+        if (!octoberResponse.ok) throw new Error("Unable to load verified iNaturalist additions");
+        const octoberObservations = appendInaturalistAdditions(
+          historicalObservations,
+          await octoberResponse.json(),
+          parseObservedOn,
+          parseObservedTime,
+        );
+        const observedDisplayResponse = await fetch("/inaturalist-observed-display-additions.json");
+        if (!observedDisplayResponse.ok) throw new Error("Unable to load reviewed observation dates");
+        const joinedObservations = appendInaturalistAdditions(
+          octoberObservations,
+          await observedDisplayResponse.json(),
+          parseObservedOn,
+          parseObservedTime,
+        );
         setObservations(joinedObservations);
 
         // Build per-user observation counts and metadata for leaderboards

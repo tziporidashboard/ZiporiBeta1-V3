@@ -1,6 +1,6 @@
 import type { Observation } from "../../src/lib/observations-store";
-import { CANONICAL_CATEGORIES, getTaxonDetails, type CanonicalCategory } from "../../src/lib/taxonomy-engine";
-import { speciesMap } from "../../src/lib/species-map";
+import { CANONICAL_CATEGORIES, getLegacyTaxonDetails as getTaxonDetails, type CanonicalCategory } from "../../src/lib/taxonomy-engine";
+import { legacySpeciesMap as speciesMap } from "../../src/lib/species-map";
 
 /** Disable this layer to restore the unchanged historical MERLIN source. */
 export const MERLIN_SYNC_ENABLED = true;

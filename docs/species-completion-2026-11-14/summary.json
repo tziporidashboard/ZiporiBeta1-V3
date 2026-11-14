@@ -1,0 +1,56 @@
+{
+  "names": 177,
+  "taxa": 177,
+  "ranks": {
+    "species": 124,
+    "genus": 24,
+    "order": 8,
+    "superfamily": 3,
+    "subfamily": 2,
+    "class": 2,
+    "subclass": 2,
+    "subspecies": 1,
+    "family": 9,
+    "tribe": 1,
+    "suborder": 1
+  },
+  "categories": {
+    "צמחים": 11,
+    "פרפרים": 84,
+    "פרוקי רגליים": 55,
+    "שפיראים": 3,
+    "שאר המינים": 12,
+    "עופות": 12
+  },
+  "generic_names": 52,
+  "identified_names": 125,
+  "hebrew_names": 99,
+  "english_names": 107,
+  "existing_aliases": [
+    {
+      "name": "Lycaena thersamon",
+      "id": 479734,
+      "aliases": [
+        {
+          "Scientific_Name": "Thersamonia thersamon",
+          "Category": "פרפרים",
+          "Hebrew_Name": "נחושתן החומעה",
+          "English_Name": "Thersamonia Thersamon",
+          "isGeneric": false
+        },
+        {
+          "Scientific_Name": "Thersamonia thersamon",
+          "Category": "פרפרים",
+          "Hebrew_Name": "נחושתן החומעה",
+          "English_Name": "",
+          "isGeneric": false
+        }
+      ]
+    }
+  ],
+  "issues": [],
+  "existing_dictionary_rows": 1287,
+  "existing_dictionary_unique_names": 1269,
+  "historical_group_changes_if_global": 716,
+  "historical_generic_changes_if_global": 880
+}

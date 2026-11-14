@@ -12,7 +12,7 @@ import {
 export const direct = loadProductionModule("src/lib/merlin-source.ts");
 
 /** Executes the current production effect, including source requests and default filters. */
-export async function loadDirectDashboard({ failSource = false, text } = {}) {
+export async function loadDirectDashboard({ failSource = false, failUrl, text } = {}) {
   const ast = tree(read("src/lib/observations-store.tsx"));
   const state = { requests: [], errors: [] };
   const load = evaluate(
@@ -33,12 +33,14 @@ export async function loadDirectDashboard({ failSource = false, text } = {}) {
             "/user_groups.csv",
             "/Until_June26.csv",
             "/inaturalist-september-2026-additions.json",
+            "/inaturalist-october-2026-additions.json",
+            "/inaturalist-observed-display-additions.json",
             `/${direct.MERLIN_SOURCE.file_name}`,
           ].includes(url),
           `Unexpected active source: ${url}`,
         );
         return {
-          ok: !(failSource && url === `/${direct.MERLIN_SOURCE.file_name}`),
+          ok: url !== failUrl && !(failSource && url === `/${direct.MERLIN_SOURCE.file_name}`),
           text: async () =>
             url === `/${direct.MERLIN_SOURCE.file_name}` && text !== undefined
               ? text

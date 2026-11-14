@@ -1,0 +1,152 @@
+{
+  "reviewed_on": "2026-11-14",
+  "evidence_type": "user_provided_screenshots_of_observation_page",
+  "policy": "Use the date/time visible under the Observed field, as explicitly instructed by the user. Retain API disagreement.",
+  "identity_mapping": "Cropped screenshots omit IDs; the user explicitly confirmed the order of all six observation URLs.",
+  "mapping_confirmed_by_user": true,
+  "mapping_confirmation_he": "כן, זה סדר התמונות",
+  "records": [
+    {
+      "inaturalist_id": "410656308",
+      "observation_url": "https://www.inaturalist.org/observations/410656308",
+      "image_number": 1,
+      "evidence_file": "410656308-observed.png",
+      "screenshot_sha256": "1653cb6a1824faae1726e506b0e6e9ae29e75654a802ac013584d0fedaca0cef",
+      "field_label": "נצפה",
+      "displayed_date": "2026-10-25",
+      "displayed_time": "00:09",
+      "time_zone_label": "IDT",
+      "precision": "minute",
+      "displayed_observer": "yuvalev"
+    },
+    {
+      "inaturalist_id": "410656312",
+      "observation_url": "https://www.inaturalist.org/observations/410656312",
+      "image_number": 2,
+      "evidence_file": "410656312-observed.png",
+      "screenshot_sha256": "3132b8b8ba0412cd9e82121816b42823de4f077b91a435fc6f58a95c2794dce3",
+      "field_label": "נצפה",
+      "displayed_date": "2026-10-25",
+      "displayed_time": "00:08",
+      "time_zone_label": "IDT",
+      "precision": "minute",
+      "displayed_observer": "yuvalev"
+    },
+    {
+      "inaturalist_id": "410656314",
+      "observation_url": "https://www.inaturalist.org/observations/410656314",
+      "image_number": 3,
+      "evidence_file": "410656314-observed.png",
+      "screenshot_sha256": "b57ecdcee182acea0dd70b26aa5c5413e101d754a940f595dde5a358db87a978",
+      "field_label": "נצפה",
+      "displayed_date": "2026-10-25",
+      "displayed_time": "00:08",
+      "time_zone_label": "IDT",
+      "precision": "minute",
+      "displayed_observer": "yuvalev"
+    },
+    {
+      "inaturalist_id": "410656316",
+      "observation_url": "https://www.inaturalist.org/observations/410656316",
+      "image_number": 4,
+      "evidence_file": "410656316-observed.png",
+      "screenshot_sha256": "2c00d6f6a01acf5223f6f2457528e00a2530c76907c21d467bbebc18ad32437e",
+      "field_label": "נצפה",
+      "displayed_date": "2026-10-25",
+      "displayed_time": "00:08",
+      "time_zone_label": "IDT",
+      "precision": "minute",
+      "displayed_observer": "yuvalev"
+    },
+    {
+      "inaturalist_id": "410656320",
+      "observation_url": "https://www.inaturalist.org/observations/410656320",
+      "image_number": 5,
+      "evidence_file": "410656320-observed.png",
+      "screenshot_sha256": "a9791a9e88666152539de368459a745dd76a157dde08df9c42b44a3497a640a8",
+      "field_label": "נצפה",
+      "displayed_date": "2026-10-25",
+      "displayed_time": "00:08",
+      "time_zone_label": "IDT",
+      "precision": "minute",
+      "displayed_observer": "yuvalev"
+    },
+    {
+      "inaturalist_id": "410656326",
+      "observation_url": "https://www.inaturalist.org/observations/410656326",
+      "image_number": 6,
+      "evidence_file": "410656326-observed.png",
+      "screenshot_sha256": "62e2699aa3c3852b15b56f645c2a55e58a7770add2f7e61abe1c8ff9a3a0fd4b",
+      "field_label": "נצפה",
+      "displayed_date": "2026-10-25",
+      "displayed_time": "00:07",
+      "time_zone_label": "IDT",
+      "precision": "minute",
+      "displayed_observer": "yuvalev"
+    }
+  ],
+  "source_csv_sha256": "458236338a35c2a8ae43a5724e5b031bcf720d02a66bed6a96d717d9ea4edf14",
+  "api": {
+    "url": "https://api.inaturalist.org/v1/observations/410656308,410656312,410656314,410656316,410656320,410656326?per_page=200",
+    "retrieved_utc": "2026-11-14T10:58:22.9753497Z",
+    "sha256": "fb3331ab08ec5940e9d824944e294a99e60eee6bd621bf7f1c536c6fded3da32",
+    "count": 6
+  },
+  "api_conflict": "observed_on_string is on 2026-10-24; observed_on/time_observed_at are on 2026-10-25. Website Observed field selects 2026-10-25.",
+  "source_records": [
+    {
+      "inaturalist_id": "410656308",
+      "uuid": "41e4007e-d830-4faf-b434-ab8bfe24fde5",
+      "csv_record_number": 3606,
+      "csv_observed_on": "2026-10-25 09:48:14",
+      "api_observed_on_string": "2026/10/24 23:09",
+      "api_observed_on": "2026-10-25",
+      "api_time_observed_at": "2026-10-25T00:09:00+03:00"
+    },
+    {
+      "inaturalist_id": "410656312",
+      "uuid": "a688706b-68c0-4bf6-9767-074cada08c28",
+      "csv_record_number": 3608,
+      "csv_observed_on": "2026-10-25 09:48:15",
+      "api_observed_on_string": "2026/10/24 23:08",
+      "api_observed_on": "2026-10-25",
+      "api_time_observed_at": "2026-10-25T00:08:00+03:00"
+    },
+    {
+      "inaturalist_id": "410656314",
+      "uuid": "c44295ae-0a5e-4e4f-8df6-ad939ef002af",
+      "csv_record_number": 3609,
+      "csv_observed_on": "2026-10-25 09:48:15",
+      "api_observed_on_string": "2026/10/24 23:08",
+      "api_observed_on": "2026-10-25",
+      "api_time_observed_at": "2026-10-25T00:08:00+03:00"
+    },
+    {
+      "inaturalist_id": "410656316",
+      "uuid": "0f52d621-ef5a-413f-9a86-ea4230aa8c2c",
+      "csv_record_number": 3610,
+      "csv_observed_on": "2026-10-25 09:48:16",
+      "api_observed_on_string": "2026/10/24 23:08",
+      "api_observed_on": "2026-10-25",
+      "api_time_observed_at": "2026-10-25T00:08:00+03:00"
+    },
+    {
+      "inaturalist_id": "410656320",
+      "uuid": "b6cb5189-d763-4a57-8ea2-b0518b4d2bde",
+      "csv_record_number": 3611,
+      "csv_observed_on": "2026-10-25 09:48:16",
+      "api_observed_on_string": "2026/10/24 23:08",
+      "api_observed_on": "2026-10-25",
+      "api_time_observed_at": "2026-10-25T00:08:00+03:00"
+    },
+    {
+      "inaturalist_id": "410656326",
+      "uuid": "d3594b2a-527b-4014-b980-22d90f63572b",
+      "csv_record_number": 3613,
+      "csv_observed_on": "2026-10-25 09:48:17",
+      "api_observed_on_string": "2026/10/24 23:07",
+      "api_observed_on": "2026-10-25",
+      "api_time_observed_at": "2026-10-25T00:07:00+03:00"
+    }
+  ]
+}

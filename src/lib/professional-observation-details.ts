@@ -1,5 +1,10 @@
 import type { Observation } from "./observations-store";
-import { getTaxonDetails, type TaxonDetails } from "./taxonomy-engine";
+import {
+  getLegacyTaxonDetails,
+  type TaxonDetails,
+  type CanonicalCategory,
+} from "./taxonomy-engine";
+import { getObservationSpeciesCompletion } from "./observation-species-completions";
 
 export type ProfessionalObservationMetadata = {
   file_name: string;
@@ -24,5 +29,17 @@ export function getProfessionalTaxonomy(o: Observation): TaxonDetails | undefine
 }
 
 export function getObservationTaxonDetails(o: Observation): TaxonDetails {
-  return getProfessionalTaxonomy(o) ?? getTaxonDetails(o.scientific_name);
+  const professional = getProfessionalTaxonomy(o);
+  if (professional) return professional;
+  const legacy = getLegacyTaxonDetails(o.scientific_name);
+  const completion = getObservationSpeciesCompletion(o);
+  if (!completion) return legacy;
+  return {
+    name: completion.Hebrew_Name || completion.Scientific_Name,
+    englishName: completion.English_Name,
+    category: completion.Category as CanonicalCategory,
+    isGeneric: completion.isGeneric,
+    // The existing rare/invasive registry continues to decide status.
+    status: legacy.status,
+  };
 }

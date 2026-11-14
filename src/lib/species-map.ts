@@ -13,12 +13,16 @@
  * Called by: `@/lib/taxonomy-engine.ts`, `@/lib/species-dictionary.ts`,
  *   `@/components/species-deep-dive.tsx`, `@/components/species-insights-table.tsx`.
  */
+import { speciesCompletions } from "./species-completions-data";
+
 export type SpeciesInfo = {
   Scientific_Name: string;
   Category: string;
   Hebrew_Name: string;
   English_Name: string;
   isGeneric?: boolean;
+  inaturalistTaxonId?: number;
+  taxonRank?: string;
 };
 
 type RawSpeciesInfo = {
@@ -1369,7 +1373,7 @@ const EXPERT_SPECIES_CATEGORIES: Record<string, "פרפרים" | "יונקים">
   "Sus scrofa": "יונקים",
 };
 
-export const speciesMap: SpeciesInfo[] = Object.entries(rawSpeciesMap).flatMap(
+export const legacySpeciesMap: SpeciesInfo[] = Object.entries(rawSpeciesMap).flatMap(
   ([category, entries]) =>
     entries.map((entry) => ({
       Scientific_Name: entry.scientific_name,
@@ -1379,3 +1383,19 @@ export const speciesMap: SpeciesInfo[] = Object.entries(rawSpeciesMap).flatMap(
       isGeneric: entry.isGeneric === true,
     }))
 );
+
+// Append verified missing taxa only. A known synonym remains one existing entry.
+// Historical observation lookups deliberately use legacySpeciesMap; completions
+// are applied through the source-scoped observation resolver.
+export const speciesMap: SpeciesInfo[] = [
+  ...legacySpeciesMap,
+  ...speciesCompletions.filter((entry) => !entry.existingScientificName).map((entry) => ({
+    Scientific_Name: entry.Scientific_Name,
+    Category: entry.Category,
+    Hebrew_Name: entry.Hebrew_Name,
+    English_Name: entry.English_Name,
+    isGeneric: entry.isGeneric,
+    inaturalistTaxonId: entry.inaturalistTaxonId,
+    taxonRank: entry.taxonRank,
+  })),
+];

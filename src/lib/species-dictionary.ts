@@ -16,7 +16,7 @@
  *   `@/components/species-insights-table.tsx`, and other components
  *   needing a fast scientific-name -> display-name lookup.
  */
-import { speciesMap, type SpeciesInfo } from "./species-map";
+import { speciesMap, legacySpeciesMap, type SpeciesInfo } from "./species-map";
 
 export type SpeciesDictionaryEntry = SpeciesInfo;
 
@@ -35,17 +35,18 @@ export const SPECIES_MAP = new Map<string, SpeciesInfo>(
  * Pre-built O(1) Map for species metadata lookups.
  */
 export const speciesInfoByScientificName = new Map<string, SpeciesInfo>(SPECIES_MAP);
+const legacyNames = new Map(legacySpeciesMap.map((entry) => [entry.Scientific_Name, entry]));
 
 export function lookupSpecies(scientificName: string): SpeciesDictionaryEntry | undefined {
   return speciesInfoByScientificName.get(scientificName);
 }
 
 export function getSpeciesHebrewName(scientificName: string): string | undefined {
-  return lookupSpecies(scientificName)?.Hebrew_Name;
+  return legacyNames.get(scientificName)?.Hebrew_Name;
 }
 
 export function getSpeciesEnglishName(scientificName: string): string | undefined {
-  return lookupSpecies(scientificName)?.English_Name;
+  return legacyNames.get(scientificName)?.English_Name;
 }
 
 export function getSpeciesCategory(scientificName: string): string | undefined {

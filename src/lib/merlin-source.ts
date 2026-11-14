@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import type { Observation } from "./observations-store";
 import { CANONICAL_CATEGORIES, getTaxonDetails, type CanonicalCategory } from "./taxonomy-engine";
-import { speciesMap } from "./species-map";
+import { legacySpeciesMap as speciesMap } from "./species-map";
 
 /** Replace only after an offline comparison and review of missing source IDs. */
 export const MERLIN_SOURCE = {

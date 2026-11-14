@@ -82,6 +82,7 @@ const groupedFor = evaluate(`return (observations) => (${memo(speciesAst, "group
 });
 const listFor = evaluate(
   `return (groupedSpecies, activeCategory, search) => (${memo(speciesAst, "speciesList")})();`,
+  store,
 );
 const countGroups = (rows) =>
   Object.fromEntries(

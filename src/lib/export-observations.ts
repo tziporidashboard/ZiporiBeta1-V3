@@ -3,6 +3,7 @@ import {
   getSpeciesClassification,
   getTaxaGroup,
   getProfessionalTaxonomy,
+  getObservationSpeciesCompletion,
   translateGroupName,
   type Observation,
 } from "./observations-store";
@@ -68,6 +69,7 @@ export function exportObservations(
     const englishName =
       lang === "en"
         ? getProfessionalTaxonomy(o)?.englishName ||
+          getObservationSpeciesCompletion(o)?.English_Name ||
           getSpeciesEnglishName(o.scientific_name)?.trim()
         : undefined;
     const commonName = englishName && englishName !== "N/A" ? englishName : (o.common_name ?? "");

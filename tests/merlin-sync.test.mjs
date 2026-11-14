@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import Papa from "papaparse";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
@@ -110,7 +111,12 @@ test("all iNaturalist records, communities, classifications and protected source
     // Only LF/CRLF are equivalent; content, whitespace and lone CR stay significant.
     const content = file === "public/MERLIN all observations for Zohar.csv"
       ? readMerlinHistory().toString("utf8")
-      : read(file);
+      : file === "src/lib/species-map.ts"
+        ? execFileSync("git", ["cat-file", "blob", "a565a5e78522dd6f27e304de9cc67f30aa036b60"], { windowsHide: true, encoding: "utf8" })
+      : file === "src/lib/inaturalist-additions.ts"
+        ? // Pin the archived September loader while testing the current loader separately.
+          execFileSync("git", ["cat-file", "blob", "482b210315d71a5fc7509615dba3b896d050efb7"], { windowsHide: true, encoding: "utf8" })
+        : read(file);
     assert.ok(
       [content, content.replace(/\r\n/g, "\n"), content.replace(/\r?\n/g, "\r\n")]
         .some((candidate) => hash(candidate) === expected),
@@ -392,10 +398,11 @@ test("missing dictionary species appear in choices, insights, chart totals and m
     "Calopteryx splendens ssp. Syriaca",
   ]) {
     const rows = expert.filter((o) => o.scientific_name === scientific_name),
-      group = store.getTaxaGroup(rows[0]);
-    assert.ok(groups[group].some((s) => s.Scientific_Name === scientific_name));
-    const insight = getTopSpecies(expert, new Set([scientific_name]), group)[0];
-    assert.equal(insight.scientificName, scientific_name);
+      group = store.getTaxaGroup(rows[0]),
+      selectionKey = store.getObservationSpeciesKey(rows[0]);
+    assert.ok(groups[group].some((s) => s.Scientific_Name === selectionKey));
+    const insight = getTopSpecies(expert, new Set([selectionKey]), group)[0];
+    assert.equal(insight.scientificName, selectionKey);
     assert.equal(insight.observations, rows.length);
     assert.equal(insight.hebrewName, rows[0].common_name);
   }

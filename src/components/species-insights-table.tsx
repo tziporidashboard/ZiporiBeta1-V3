@@ -23,11 +23,13 @@ import { useMemo } from "react";
 import {
   getTaxaGroup,
   getProfessionalTaxonomy,
+  getObservationSpeciesCompletion,
+  getObservationSpeciesKey,
   type Observation,
   type TaxaGroupKey,
 } from "@/lib/observations-store";
 import { SPECIES_MAP } from "@/lib/species-dictionary";
-import { speciesMap } from "@/lib/species-map";
+import { legacySpeciesMap as speciesMap } from "@/lib/species-map";
 import { useI18n, translateSeasonalStatus } from "@/lib/i18n";
 import { ArrowDownLeft, ArrowDownRight, ArrowUpLeft, ArrowUpRight, Minus } from "lucide-react";
 
@@ -71,14 +73,20 @@ export function getTopSpecies(
     // category when historical classifications are intentionally preserved.
     if (priorityCategory && getTaxaGroup(observation) !== priorityCategory) continue;
     const professional = getProfessionalTaxonomy(observation);
+    const completion = getObservationSpeciesCompletion(observation);
     if (
       !observation.scientific_name ||
-      (professional ? professional.isGeneric : !CHIP_SPECIES_NAMES.has(observation.scientific_name))
+      (professional
+        ? professional.isGeneric
+        : completion
+          ? completion.isGeneric
+          : !CHIP_SPECIES_NAMES.has(observation.scientific_name))
     )
       continue;
-    const records = bySpecies.get(observation.scientific_name) ?? [];
+    const key = getObservationSpeciesKey(observation);
+    const records = bySpecies.get(key) ?? [];
     records.push(observation);
-    bySpecies.set(observation.scientific_name, records);
+    bySpecies.set(key, records);
   }
 
   const insights: SpeciesInsight[] = [...bySpecies.entries()].map(([scientificName, records]) => {
