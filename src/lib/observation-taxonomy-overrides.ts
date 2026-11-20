@@ -75,19 +75,18 @@ const corrections: ReadonlyMap<string, { scientificName: string; group: TaxaGrou
 /** Derived classification only; does not mutate observations or source metadata. */
 export function getObservationTaxonomyOverride(observation: Observation): TaxaGroupKey | null {
   const metadata = observation.source_metadata;
-  if (
-    observation.source !== "inaturalist" ||
-    !observation.composite_id ||
-    metadata?.file_sha256 !== SOURCE_SHA256 ||
-    observation.composite_id !== `inat_${metadata.values.originalRecordId}`
-  ) {
+  if (observation.source !== "inaturalist" || !observation.composite_id) {
     return null;
   }
 
   const correction = corrections.get(observation.composite_id);
+  if (!correction || observation.scientific_name !== correction.scientificName) {
+    return null;
+  }
+  if (observation.retainedTaxonomyEvidence?.kind === "september") return correction.group;
   if (
-    !correction ||
-    observation.scientific_name !== correction.scientificName ||
+    metadata?.file_sha256 !== SOURCE_SHA256 ||
+    observation.composite_id !== `inat_${metadata.values.originalRecordId}` ||
     metadata.values.scientific_name !== correction.scientificName
   ) {
     return null;

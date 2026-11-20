@@ -1,10 +1,15 @@
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import type { Polygon } from "geojson";
 
-type Coordinates = { latitude: number; longitude: number };
+type Coordinates = { latitude: number | null; longitude: number | null };
 
-export function hasValidCoordinates(point: Coordinates): boolean {
+export function hasValidCoordinates(point: Coordinates): point is {
+  latitude: number;
+  longitude: number;
+} {
   return (
+    point.latitude !== null &&
+    point.longitude !== null &&
     Number.isFinite(point.latitude) &&
     Number.isFinite(point.longitude) &&
     Math.abs(point.latitude) <= 90 &&

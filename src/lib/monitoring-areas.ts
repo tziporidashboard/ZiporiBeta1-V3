@@ -25,11 +25,11 @@
  *   by area.
  */
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
-import { observationMatchesDrawnPolygon } from "./drawn-polygon";
+import { hasValidCoordinates, observationMatchesDrawnPolygon } from "./drawn-polygon";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { Observation } from "./observations-store";
 import type { Lang } from "./i18n";
-import { getObservationArea, type SurveyAreaKey } from "./survey-polygons";
+import { getObservationArea, SURVEY_AREA_KEYS, type SurveyAreaKey } from "./survey-polygons";
 
 export type MonitoringAreaProperties = {
   id: string;
@@ -130,6 +130,7 @@ export function buildObservationMonitoringAreaIndex(
   const indexedAreas = monitoringAreas.features.map(getIndexedArea);
 
   for (const observation of observations) {
+    if (!hasValidCoordinates(observation)) continue;
     const matches = new Set<string>();
     for (const area of indexedAreas) {
       if (
@@ -158,6 +159,10 @@ export function observationMatchesSelectedAreas(
   drawnPolygon?: Polygon | null,
 ): boolean {
   if (!observationMatchesDrawnPolygon(observation, drawnPolygon)) return false;
+  if (!hasValidCoordinates(observation)) {
+    // A missing public location is included in global totals only.
+    return SURVEY_AREA_KEYS.every((key) => selectedSurveyAreas.has(key));
+  }
   const surveyArea = getObservationArea(observation.latitude, observation.longitude);
   if (
     (surveyArea === null && selectedSurveyAreas.has("other_areas")) ||

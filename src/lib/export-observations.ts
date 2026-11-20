@@ -97,10 +97,10 @@ export function exportObservations(
       [header("דרגת איכות")]: qualityLabels[o.quality_grade] ?? o.quality_grade,
       [header("קו רוחב")]: o.latitude,
       [header("קו אורך")]: o.longitude,
-      [header("אזור סקר")]: translateArea(
-        getObservationArea(o.latitude, o.longitude) ?? "other_areas",
-        lang,
-      ),
+      [header("אזור סקר")]:
+        o.latitude === null || o.longitude === null
+          ? ""
+          : translateArea(getObservationArea(o.latitude, o.longitude) ?? "other_areas", lang),
       [header("מזהי אזורי ניטור")]: areaIds ? areaIds.join(" | ") : unavailable,
       [header("אזורי ניטור")]: areaIds
         ? areaIds.map((id) => areaNames.get(id) ?? "").join(" | ")

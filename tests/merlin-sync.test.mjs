@@ -113,6 +113,8 @@ test("all iNaturalist records, communities, classifications and protected source
       ? readMerlinHistory().toString("utf8")
       : file === "src/lib/species-map.ts"
         ? execFileSync("git", ["cat-file", "blob", "a565a5e78522dd6f27e304de9cc67f30aa036b60"], { windowsHide: true, encoding: "utf8" })
+      : file === "src/lib/observation-taxonomy-overrides.ts"
+        ? execFileSync("git", ["cat-file", "blob", "46208d39ed9ddee0d2fd28c5a71ee3bc7f709857"], { windowsHide: true, encoding: "utf8" })
       : file === "src/lib/inaturalist-additions.ts"
         ? // Pin the archived September loader while testing the current loader separately.
           execFileSync("git", ["cat-file", "blob", "482b210315d71a5fc7509615dba3b896d050efb7"], { windowsHide: true, encoding: "utf8" })

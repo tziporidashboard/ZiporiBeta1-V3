@@ -4,26 +4,8 @@
  * Dive" sub-state. This is the single source of truth consumed by every
  * view/component in `@/components/`.
  *
- * Data loading (client-only, runs once on mount inside `useEffect`,
- * skipped during SSR):
- *   1. Fetches `/user_groups.csv` — maps `user_login` -> raw group name.
- *   2. Fetches `/Until_June26.csv` — the main iNaturalist export; each
- *      row is parsed and joined with the user-group map to produce an
- *      `Observation` (see the `Observation` type below for the required
- *      columns: `observed_on`, `latitude`, `longitude`, `user_login`,
- *      `quality_grade`, `iconic_taxon_name`, `scientific_name`,
- *      `taxon_order_name`, `id`, `establishment_means`, `url`, etc.).
- *      Rows with unparseable dates or coordinates are dropped.
- *   3. Fetches the single MERLIN_SOURCE snapshot directly. A reviewed ID-specific
- *      coordinate correction is applied without loading the historical archive.
- *      Appends the unchanged iNaturalist September additions by original ID.
- *      Then appends the separately verified October additions by stable source ID.
- *   4. Fetches `/monitoring-areas.geojson` (via
- *      `@/lib/monitoring-areas.ts`) and builds a per-observation
- *      monitoring-area membership index.
- *   5. Computes dataset-wide date bounds and initializes default filters
- *      (all years selected, all detected user groups selected, plus
- *      "expert" always included).
+ * The browser loads one unified observation dataset with UUID-keyed display
+ * metadata. Monitoring-area geometry is independent of the dataset.
  *
  * Filter state (`Filters` type) covers: `dateRange`, `time`
  *   (year -> selected months), `taxa`, `groups`, `areas`,
@@ -43,6 +25,7 @@
  *   `useObservations()`.
  */
 import { createDefaultQualitySelection, type QualityGrade } from "@/lib/quality-filter";
+import { loadUnifiedObservations, type RetainedTaxonomyEvidence } from "./unified-observations";
 import { getInaturalistCommonName } from "./observation-enrichment";
 import { getObservationTaxonomyOverride } from "./observation-taxonomy-overrides";
 import { MERLIN_SOURCE, parseMerlinSnapshot } from "./merlin-source";
@@ -92,8 +75,8 @@ export type { SurveyAreaKey };
 export type Observation = {
   observed_on: string; // DD/MM/YYYY (recorded calendar date, without timezone conversion)
   observed_time?: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   user_login: string;
   quality_grade: string;
   iconic_taxon_name: string;
@@ -107,6 +90,7 @@ export type Observation = {
   source?: "merlin" | "inaturalist";
   source_url?: string;
   source_metadata?: ObservationSourceMetadata;
+  retainedTaxonomyEvidence?: RetainedTaxonomyEvidence;
   professional_metadata?: ProfessionalObservationMetadata;
 };
 
@@ -225,12 +209,12 @@ export function translateMonth(monthNum: number, lang: "he" | "en" = "he"): stri
 /**
  * Parse the explicit format of each active source:
  * - iNaturalist: DD/MM/YYYY, optionally followed by a time.
- * - MERLIN: YYYY-MM-DD, optionally followed by an ISO/space-separated time.
+ * - Unified CSV and MERLIN: YYYY-MM-DD, with an optional recorded time.
  * Normalizes to DD/MM/YYYY (the internal format used by the rest of the app).
  * Keeps the recorded calendar date without timezone conversion. Clock times
  * are extracted separately by parseObservedTime. Invalid dates return "".
  */
-function parseObservedOn(value: string, source: "inaturalist" | "merlin"): string {
+function parseObservedOn(value: string, source: "inaturalist" | "merlin" | "unified"): string {
   const raw = (value || "").trim();
   if (!raw) return "";
 
@@ -262,6 +246,117 @@ function parseObservedTime(value: string): string | undefined {
   const [hour, minute, second = 0] = match[1].split(":").map(Number);
   if (hour > 23 || minute > 59 || second > 59) return undefined;
   return match[1];
+}
+
+/** Retained for the former snapshot and offline regression checks. */
+export async function loadLegacyObservations(): Promise<Observation[]> {
+  // Load user groups CSV
+  const userGroupsResponse = await fetch("/user_groups.csv");
+  const userGroupsText = await userGroupsResponse.text();
+  const userGroupsData = Papa.parse<Record<string, string>>(userGroupsText, {
+    header: true,
+    skipEmptyLines: true,
+  }).data;
+
+  const userGroupMap = new Map<string, string>(
+    userGroupsData.map((row) => [row.user_login, row.group]),
+  );
+
+  // Load main observations CSV
+  const observationsResponse = await fetch("/Until_June26.csv");
+  const observationsText = await observationsResponse.text();
+  const observationsData = Papa.parse<Record<string, string>>(observationsText, {
+    header: true,
+    skipEmptyLines: true,
+  }).data;
+
+  // Join data: add user_category to each observation
+  const tziporiObservations: Observation[] = observationsData
+    .map((row) => {
+      const lat = parseFloat((row.latitude || "").trim());
+      const lon = parseFloat((row.longitude || "").trim());
+      const observedOn = parseObservedOn(row.observed_on || "", "inaturalist");
+
+      if (!observedOn || isNaN(lat) || isNaN(lon)) return null;
+
+      const userLogin = (row.user_login || "").trim();
+      const rawCategory = userGroupMap.get(userLogin) || "קהילות מקוונות";
+      const userCategory = getSupergroup(rawCategory);
+      const userSubcategory = rawCategory;
+
+      const inatId = (row.id || "").trim();
+
+      const observation: Observation = {
+        observed_on: observedOn,
+        observed_time: parseObservedTime(row.observed_on_string || ""),
+        latitude: lat,
+        longitude: lon,
+        user_login: userLogin,
+        quality_grade: (row.quality_grade || "").trim().toLowerCase(),
+        iconic_taxon_name: (row.iconic_taxon_name || "").trim(),
+        scientific_name: (row.scientific_name || "").trim(),
+        common_name: getInaturalistCommonName(inatId, (row.common_name || "").trim() || undefined),
+        taxon_order_name: (row.taxon_order_name || "").trim(),
+        user_category: userCategory,
+        user_subcategory: userSubcategory,
+        establishment_means: (row.establishment_means || "").trim().toLowerCase() || undefined,
+        composite_id: inatId ? `inat_${inatId}` : undefined,
+        source: "inaturalist",
+        source_url: row.url,
+      };
+      return observation;
+    })
+    .filter((obs): obs is Observation => obs !== null);
+
+  // One authoritative professional snapshot; no historical fetch or merge.
+  const merlinResponse = await fetch(`/${MERLIN_SOURCE.file_name}`);
+  if (!merlinResponse.ok) throw new Error("Unable to load professional monitoring snapshot");
+  const merlinObservations = parseMerlinSnapshot(
+    await merlinResponse.text(),
+    parseObservedOn,
+    parseObservedTime,
+  );
+
+  const additionsResponse = await fetch("/inaturalist-september-2026-additions.json");
+  if (!additionsResponse.ok) throw new Error("Unable to load iNaturalist additions");
+  const additionsData: unknown = await additionsResponse.json();
+  // Preserve the published row order as well as the iNaturalist import policy.
+  // This fixed ID boundary controls ordering only, never loading or deletion.
+  const precedingMerlin = merlinObservations.filter(
+    (o) =>
+      Number(o.professional_metadata!.values.composite_id.split("_").pop()) <=
+      MERLIN_SOURCE.previous_source_id_max,
+  );
+  const followingMerlin = merlinObservations.filter(
+    (o) =>
+      Number(o.professional_metadata!.values.composite_id.split("_").pop()) >
+      MERLIN_SOURCE.previous_source_id_max,
+  );
+  const historicalObservations = [
+    ...appendInaturalistAdditions(
+      [...tziporiObservations, ...precedingMerlin],
+      additionsData,
+      parseObservedOn,
+      parseObservedTime,
+    ),
+    ...followingMerlin,
+  ];
+  const octoberResponse = await fetch("/inaturalist-october-2026-additions.json");
+  if (!octoberResponse.ok) throw new Error("Unable to load verified iNaturalist additions");
+  const octoberObservations = appendInaturalistAdditions(
+    historicalObservations,
+    await octoberResponse.json(),
+    parseObservedOn,
+    parseObservedTime,
+  );
+  const observedDisplayResponse = await fetch("/inaturalist-observed-display-additions.json");
+  if (!observedDisplayResponse.ok) throw new Error("Unable to load reviewed observation dates");
+  return appendInaturalistAdditions(
+    octoberObservations,
+    await observedDisplayResponse.json(),
+    parseObservedOn,
+    parseObservedTime,
+  );
 }
 
 export const TAXA_GROUP_KEYS = [
@@ -503,114 +598,7 @@ export function ObservationsProvider({ children }: { children: ReactNode }) {
 
     const loadData = async () => {
       try {
-        // Load user groups CSV
-        const userGroupsResponse = await fetch("/user_groups.csv");
-        const userGroupsText = await userGroupsResponse.text();
-        const userGroupsData = Papa.parse<Record<string, string>>(userGroupsText, {
-          header: true,
-          skipEmptyLines: true,
-        }).data;
-
-        const userGroupMap = new Map<string, string>(
-          userGroupsData.map((row) => [row.user_login, row.group]),
-        );
-
-        // Load main observations CSV
-        const observationsResponse = await fetch("/Until_June26.csv");
-        const observationsText = await observationsResponse.text();
-        const observationsData = Papa.parse<Record<string, string>>(observationsText, {
-          header: true,
-          skipEmptyLines: true,
-        }).data;
-
-        // Join data: add user_category to each observation
-        const tziporiObservations: Observation[] = observationsData
-          .map((row) => {
-            const lat = parseFloat((row.latitude || "").trim());
-            const lon = parseFloat((row.longitude || "").trim());
-            const observedOn = parseObservedOn(row.observed_on || "", "inaturalist");
-
-            if (!observedOn || isNaN(lat) || isNaN(lon)) return null;
-
-            const userLogin = (row.user_login || "").trim();
-            const rawCategory = userGroupMap.get(userLogin) || "קהילות מקוונות";
-            const userCategory = getSupergroup(rawCategory);
-            const userSubcategory = rawCategory;
-
-            const inatId = (row.id || "").trim();
-
-            const observation: Observation = {
-              observed_on: observedOn,
-              observed_time: parseObservedTime(row.observed_on_string || ""),
-              latitude: lat,
-              longitude: lon,
-              user_login: userLogin,
-              quality_grade: (row.quality_grade || "").trim().toLowerCase(),
-              iconic_taxon_name: (row.iconic_taxon_name || "").trim(),
-              scientific_name: (row.scientific_name || "").trim(),
-              common_name: getInaturalistCommonName(
-                inatId,
-                (row.common_name || "").trim() || undefined,
-              ),
-              taxon_order_name: (row.taxon_order_name || "").trim(),
-              user_category: userCategory,
-              user_subcategory: userSubcategory,
-              establishment_means:
-                (row.establishment_means || "").trim().toLowerCase() || undefined,
-              composite_id: inatId ? `inat_${inatId}` : undefined,
-              source: "inaturalist",
-              source_url: row.url,
-            };
-            return observation;
-          })
-          .filter((obs): obs is Observation => obs !== null);
-
-        // One authoritative professional snapshot; no historical fetch or merge.
-        const merlinResponse = await fetch(`/${MERLIN_SOURCE.file_name}`);
-        if (!merlinResponse.ok) throw new Error("Unable to load professional monitoring snapshot");
-        const merlinObservations = parseMerlinSnapshot(
-          await merlinResponse.text(),
-          parseObservedOn,
-          parseObservedTime,
-        );
-
-        const additionsResponse = await fetch("/inaturalist-september-2026-additions.json");
-        if (!additionsResponse.ok) throw new Error("Unable to load iNaturalist additions");
-        const additionsData: unknown = await additionsResponse.json();
-        // Preserve the published row order as well as the iNaturalist import policy.
-        // This fixed ID boundary controls ordering only, never loading or deletion.
-        const precedingMerlin = merlinObservations.filter(
-          (o) =>
-            Number(o.professional_metadata!.values.composite_id.split("_").pop()) <=
-            MERLIN_SOURCE.previous_source_id_max,
-        );
-        const followingMerlin = merlinObservations.filter(
-          (o) =>
-            Number(o.professional_metadata!.values.composite_id.split("_").pop()) >
-            MERLIN_SOURCE.previous_source_id_max,
-        );
-        const historicalObservations = [
-          ...appendInaturalistAdditions(
-            [...tziporiObservations, ...precedingMerlin],
-            additionsData,
-            parseObservedOn,
-            parseObservedTime,
-          ),
-          ...followingMerlin,
-        ];
-        const octoberResponse = await fetch("/inaturalist-october-2026-additions.json");
-        if (!octoberResponse.ok) throw new Error("Unable to load verified iNaturalist additions");
-        const octoberObservations = appendInaturalistAdditions(
-          historicalObservations,
-          await octoberResponse.json(),
-          parseObservedOn,
-          parseObservedTime,
-        );
-        const observedDisplayResponse = await fetch("/inaturalist-observed-display-additions.json");
-        if (!observedDisplayResponse.ok) throw new Error("Unable to load reviewed observation dates");
-        const joinedObservations = appendInaturalistAdditions(
-          octoberObservations,
-          await observedDisplayResponse.json(),
+        const joinedObservations = await loadUnifiedObservations(
           parseObservedOn,
           parseObservedTime,
         );

@@ -14,9 +14,12 @@ export function getObservationSpeciesCompletion(o: Observation) {
   const metadata = o.source_metadata;
   const v = metadata?.verification;
   const entry = byName.get(o.scientific_name);
+  if (!entry || o.source !== "inaturalist") return undefined;
+  const retained = o.retainedTaxonomyEvidence;
+  if (retained?.kind === "verified-csv") {
+    return retained.taxonId === entry.inaturalistTaxonId ? entry : undefined;
+  }
   if (
-    !entry ||
-    o.source !== "inaturalist" ||
     metadata?.file_sha256 !== SOURCE_SHA256 ||
     !v ||
     o.composite_id !== `inat_${v.inaturalist_id}` ||

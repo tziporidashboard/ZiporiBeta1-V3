@@ -11,7 +11,7 @@ import {
 
 export const direct = loadProductionModule("src/lib/merlin-source.ts");
 
-/** Executes the current production effect, including source requests and default filters. */
+/** Exercises the archived multi-source loader with the provider's filter initialization. */
 export async function loadDirectDashboard({ failSource = false, failUrl, text } = {}) {
   const ast = tree(read("src/lib/observations-store.tsx"));
   const state = { requests: [], errors: [] };
@@ -19,6 +19,8 @@ export async function loadDirectDashboard({ failSource = false, failUrl, text } 
     `
     ${["CATEGORY_MAP"].map((n) => `const ${variable(ast, n).getText(ast)};`).join("\n")}
     ${["getSupergroup", "parseObservedOn", "parseObservedTime"].map((n) => functionText(ast, n)).join("\n")}
+    ${functionText(ast, "loadLegacyObservations")}
+    const loadUnifiedObservations = loadLegacyObservations;
     return ${variable(ast, "loadData").initializer.getText(ast)};`,
     {
       ...direct,

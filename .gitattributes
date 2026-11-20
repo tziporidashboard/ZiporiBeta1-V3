@@ -1,2 +1,5 @@
 # Keep the approved MERLIN snapshot checksum stable on every platform.
 public/merlin-experts-2026-11-06.csv text eol=lf
+
+# The reviewed web projection is validated by its byte-level SHA-256.
+dashboard-public/zipori-observations-2026-11-20.csv -text

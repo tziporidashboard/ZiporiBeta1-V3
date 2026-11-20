@@ -59,6 +59,7 @@ import {
 import { translateMonitoringAreaName } from "@/lib/monitoring-areas";
 import type { Polygon as GeoJsonPolygon } from "geojson";
 import { PolygonFilterControl } from "@/components/polygon-filter-control";
+import { hasValidCoordinates } from "@/lib/drawn-polygon";
 
 function FitBounds({
   obs,
@@ -71,10 +72,13 @@ function FitBounds({
 }) {
   const map = useMap();
   useEffect(() => {
-    if (drawing || (!polygon && obs.length === 0)) return;
+    if (drawing) return;
     const points = polygon
       ? polygon.coordinates[0].map(([lng, lat]) => [lat, lng] as [number, number])
-      : obs.map((o) => [o.latitude, o.longitude] as [number, number]);
+      : obs.flatMap((o) =>
+          hasValidCoordinates(o) ? [[o.latitude, o.longitude] as [number, number]] : [],
+        );
+    if (!points.length) return;
     const bounds = L.latLngBounds(points);
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true });
   }, [obs, map, polygon, drawing]);
@@ -194,13 +198,15 @@ export function ObservationMap({
     [monitoringAreas, filters.monitoringAreas],
   );
 
-  const center: [number, number] = data[0] ? [data[0].latitude, data[0].longitude] : [31.5, 34.9]; // default Israel
+  const firstPoint = data.find(hasValidCoordinates);
+  const center: [number, number] = [firstPoint?.latitude ?? 31.5, firstPoint?.longitude ?? 34.9];
 
   // Keep corrected records separate without regrouping any unreviewed records.
   const bubbles = useMemo(() => {
     const groups = new Map<string, Bubble>();
 
     for (const obs of data) {
+      if (obs.latitude === null || obs.longitude === null) continue;
       const category = getTaxaGroup(obs) || "other";
       const correction =
         getObservationTaxonomyOverride(obs) ??
